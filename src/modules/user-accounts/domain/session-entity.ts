@@ -1,20 +1,38 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { UserEntity } from './user-entity';
+
+@Entity('Sessions')
 export class SessionEntity {
+  @PrimaryColumn('uuid')
   id: string;
+  @Column({ type: 'uuid' })
   userId: string;
+  @Column({ type: 'uuid' })
   deviceId: string;
+  @Column({ type: 'varchar' })
   deviceName: string;
+  @Column({ type: 'varchar' })
   ip: string;
+  @Column({ type: 'timestamp' })
   iat: Date;
+  @Column({ type: 'timestamp' })
   exp: Date;
+  @CreateDateColumn()
   createdAt: Date;
+  @UpdateDateColumn()
   updatedAt: Date;
 
-  constructor(data: Partial<SessionEntity> = {}) {
-    Object.assign(this, data);
-
-    this.createdAt = this.createdAt ?? new Date();
-    this.updatedAt = this.updatedAt ?? new Date();
-  }
+  @ManyToOne(() => UserEntity, (user) => user.sessions, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: UserEntity;
 
   updateDates(iat: number, exp: number): void {
     this.iat = new Date(iat * 1000);
@@ -22,11 +40,7 @@ export class SessionEntity {
     this.updatedAt = new Date();
   }
 
-  // isExpired(): boolean {
-  //   return this.exp.getTime() < Date.now();
-  // }
-  //
-  // updateLastActiveDate(): void {
-  //   this.updatedAt = new Date();
-  // }
+  isExpired(): boolean {
+    return this.exp.getTime() < Date.now();
+  }
 }

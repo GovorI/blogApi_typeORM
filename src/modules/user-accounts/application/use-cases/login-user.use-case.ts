@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { CommandHandler } from '@nestjs/cqrs';
 import { JwtService } from '../jwt-service';
 import { JwtConfig } from '../../../jwt/jwt.config';
-import { SessionsSqlRepository } from '../../infrastructure/sessions.sql-repository';
+import { SessionsRepository } from '../../infrastructure/sessions.repository';
 import { SessionEntity } from '../../domain/session-entity';
 
 export class LoginUserCommand {
@@ -18,7 +18,7 @@ export class LoginUserUseCase {
   constructor(
     private readonly jwtService: JwtService,
     private readonly jwtConfig: JwtConfig,
-    private readonly sessionsRepository: SessionsSqlRepository,
+    private readonly sessionsRepository: SessionsRepository,
   ) {}
 
   async execute(command: LoginUserCommand) {
@@ -46,7 +46,7 @@ export class LoginUserUseCase {
         throw new Error('Invalid refresh token payload');
       }
 
-      const session = new SessionEntity({
+      const session = this.sessionsRepository.create({
         id: sessionId,
         userId: command.userId,
         deviceId: deviceId,

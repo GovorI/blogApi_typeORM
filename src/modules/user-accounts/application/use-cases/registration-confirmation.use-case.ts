@@ -1,5 +1,5 @@
 import { CommandHandler } from '@nestjs/cqrs';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
 
 export class RegistrationConfirmationCommand {
   constructor(public code: string) {}
@@ -7,7 +7,7 @@ export class RegistrationConfirmationCommand {
 
 @CommandHandler(RegistrationConfirmationCommand)
 export class RegistrationConfirmationUseCase {
-  constructor(private readonly usersRepository: UsersSqlRepository) {}
+  constructor(private readonly usersRepository: UsersRepository) {}
 
   async execute(command: RegistrationConfirmationCommand) {
     const user = await this.usersRepository.findUserByConfirmationCode(

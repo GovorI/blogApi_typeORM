@@ -1,7 +1,7 @@
 import { UpdatePostInputDto } from '../../../api/input-dto/post.input.dto';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { PostsSqlRepository } from '../../../infrastructure/posts-sql-repository';
-import { BlogsSqlRepository } from '../../../infrastructure/blogs.sql-repository';
+import { PostsRepository } from '../../../infrastructure/posts.repository';
+import { BlogsRepository } from '../../../infrastructure/blogs.repository';
 import { PostEntity } from '../../../domain/post-entity';
 import { BlogNotFoundException } from '../../../../../core/domain';
 
@@ -16,8 +16,8 @@ export class UpdatePostCommand {
 @CommandHandler(UpdatePostCommand)
 export class UpdatePostUseCase implements ICommandHandler<UpdatePostCommand> {
   constructor(
-    private postsRepository: PostsSqlRepository,
-    private blogsRepository: BlogsSqlRepository,
+    private postsRepository: PostsRepository,
+    private blogsRepository: BlogsRepository,
   ) {}
 
   async execute(command: UpdatePostCommand): Promise<void> {

@@ -35,14 +35,6 @@ export class CommentsController {
     @Param('id', ParseUUIDPipe) id: string,
     @ExtractUserFromRequest() user: UserContextDto | null,
   ): Promise<CommentViewDto> {
-    // Validate UUID format
-    // if (!uuidValidate(id)) {
-    //   throw new DomainException({
-    //     code: DomainExceptionCode.BadRequest,
-    //     message: 'Invalid comment ID format',
-    //   });
-    // }
-
     const userId = user?.id || undefined;
     return await this.commentQueryRepository.getByIdOrNotFoundFail(id, userId);
   }
@@ -55,14 +47,6 @@ export class CommentsController {
     @Body() dto: UpdateCommentDto,
     @ExtractUserFromRequest() user: UserContextDto,
   ) {
-    // Validate UUID format
-    // if (!uuidValidate(id)) {
-    //   throw new DomainException({
-    //     code: DomainExceptionCode.BadRequest,
-    //     message: 'Invalid comment ID format',
-    //   });
-    // }
-
     await this.commandBus.execute(new UpdateCommentCommand(id, dto, user.id));
   }
 

@@ -1,6 +1,6 @@
 import { CommandHandler } from '@nestjs/cqrs';
 import { CryptoService } from '../crypto-service';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
 
 export class NewPasswordCommand {
   constructor(
@@ -12,7 +12,7 @@ export class NewPasswordCommand {
 @CommandHandler(NewPasswordCommand)
 export class NewPasswordUseCase {
   constructor(
-    private readonly usersRepository: UsersSqlRepository,
+    private readonly usersRepository: UsersRepository,
     private readonly cryptoService: CryptoService,
   ) {}
 
@@ -23,16 +23,16 @@ export class NewPasswordUseCase {
     if (!user) {
       return;
     }
-    if (!user.passwordRecoveryExpiration) return false;
+    if (!user.passwordRecoveryCodeExpiration) return false;
 
-    const expiresAt = new Date(user.passwordRecoveryExpiration).getTime();
+    const expiresAt = new Date(user.passwordRecoveryCodeExpiration).getTime();
     if (Number.isNaN(expiresAt)) return false;
 
     const passwordHash: string = await this.cryptoService.createPassHash(
       command.newPassword,
     );
     user.passwordRecoveryCode = null;
-    user.passwordRecoveryExpiration = null;
+    user.passwordRecoveryCodeExpiration = null;
     user.passwordHash = passwordHash;
     await this.usersRepository.save(user);
   }

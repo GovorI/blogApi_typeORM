@@ -9,65 +9,60 @@ import {
 } from '../api/blogs/get-blogs-query-params.input-dto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ISqlBlog } from './blogs.sql-repository';
-import { BlogsAdapter } from './adapters/blogs-adapter';
+import { BlogEntity } from '../domain/blog-entity';
 
 @Injectable()
 export class BlogsQueryRepository {
   constructor(@InjectDataSource() private dataSource: DataSource) {}
 
   async getByIdOrNotFoundFail(id: string): Promise<BlogViewDto> {
-    // Используем правильное имя столбца "deletedAt"
-    const blogs: ISqlBlog[] = await this.dataSource.query(
-      `
-      SELECT * FROM "Blogs" WHERE id = $1 AND "deletedAt" IS NULL
-    `,
-      [id],
-    );
-    if (!blogs[0]) {
+    const blog = await this.dataSource
+      .getRepository(BlogEntity)
+      .createQueryBuilder('blog')
+      .where('blog.id = :id', { id })
+      .andWhere('blog.deletedAt IS NULL')
+      .getOne();
+    if (!blog) {
       throw new BlogNotFoundException('Blog not found');
     }
-    const blogEntity = BlogsAdapter.toEntity(blogs[0]);
-    return BlogViewDto.mapToView(blogEntity);
+
+    return BlogViewDto.mapToView(blog);
   }
 
   async getAll(
     query: GetBlogsQueryParams,
   ): Promise<PaginatedViewDto<BlogViewDto[]>> {
-    const params: any[] = [];
+    const blogsRepository = this.dataSource.getRepository(BlogEntity);
+    const baseQuery = blogsRepository
+      .createQueryBuilder('blog')
+      .where('blog.deletedAt IS NULL');
 
-    let filter = `WHERE "deletedAt" IS NULL`;
     if (query.searchNameTerm) {
-      params.push(`%${query.searchNameTerm}%`);
-      filter += ` AND name ILIKE $${params.length}`;
+      baseQuery.andWhere('blog.name ILIKE :searchNameTerm', {
+        searchNameTerm: `%${query.searchNameTerm}%`,
+      });
     }
 
-    const sortField = query.sortBy || BlogsSortBy.CreatedAt;
+    const allowedSortFields: Record<BlogsSortBy, string> = {
+      [BlogsSortBy.Name]: 'blog.name',
+      [BlogsSortBy.Description]: 'blog.description',
+      [BlogsSortBy.CreatedAt]: 'blog.createdAt',
+    } as const;
+
+    const sortBy = allowedSortFields[query.sortBy ?? BlogsSortBy.CreatedAt];
     const sortDirection =
       query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
-    const orderBy = `ORDER BY "${sortField}" ${sortDirection}`;
 
-    const limit = query.pageSize;
-    const offset = (query.pageNumber - 1) * query.pageSize;
-    params.push(limit, offset);
-    const pagination = `LIMIT $${params.length - 1} OFFSET $${params.length}`;
+    const paginatedQuery = baseQuery.clone().orderBy(sortBy, sortDirection);
 
-    const totalCountQuery = `SELECT count(*) FROM "Blogs" ${filter}`;
-    const totalCountResult: { count: string }[] = await this.dataSource.query(
-      totalCountQuery,
-      params.slice(0, params.length - 2),
-    );
-    const totalCount = parseInt(totalCountResult[0].count, 10);
+    paginatedQuery.skip(query.calculateSkip()).take(query.pageSize);
 
-    const blogsQuery = `SELECT * FROM "Blogs" ${filter} ${orderBy} ${pagination}`;
-    const blogsSql: ISqlBlog[] = await this.dataSource.query(
-      blogsQuery,
-      params,
-    );
+    const [blogs, totalCount] = await Promise.all([
+      paginatedQuery.getMany(),
+      baseQuery.clone().getCount(),
+    ]);
 
-    const items = blogsSql
-      .map(BlogsAdapter.toEntity)
-      .map(BlogViewDto.mapToView);
+    const items = blogs.map((blog) => BlogViewDto.mapToView(blog));
 
     return PaginatedViewDto.mapToView({
       pageNumber: query.pageNumber,

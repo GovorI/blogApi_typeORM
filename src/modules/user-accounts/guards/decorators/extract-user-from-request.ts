@@ -1,7 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
 
-export interface UserContextDto {
+interface UserContextDto {
   id: string;
   deviceId?: string;
 }

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ISqlSession } from '../../infrastructure/sessions.sql-repository';
+// import { ISqlSession } from '../../infrastructure/sessions.repository';
+import { SessionEntity } from '../../domain/session-entity';
 
 export class SessionViewDto {
   @ApiProperty({
@@ -26,12 +27,12 @@ export class SessionViewDto {
   })
   deviceId: string;
 
-  static mapToSessionViewDto(rawSessions: ISqlSession[]): SessionViewDto[] {
-    return rawSessions.map((session: ISqlSession) => {
+  static mapToSessionViewDto(sessions: SessionEntity[]): SessionViewDto[] {
+    return sessions.map((session: SessionEntity) => {
       return {
         ip: session.ip,
         title: session.deviceName,
-        lastActiveDate: new Date(session.iat * 1000).toISOString(),
+        lastActiveDate: session.iat.toISOString(),
         deviceId: session.deviceId,
       };
     });

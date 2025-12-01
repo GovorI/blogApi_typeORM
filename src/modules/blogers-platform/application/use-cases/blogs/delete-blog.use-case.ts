@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { BlogsSqlRepository } from '../../../infrastructure/blogs.sql-repository';
+import { BlogsRepository } from '../../../infrastructure/blogs.repository';
 
 export class DeleteBlogCommand {
   constructor(public id: string) {}
@@ -7,7 +7,7 @@ export class DeleteBlogCommand {
 
 @CommandHandler(DeleteBlogCommand)
 export class DeleteBlogUseCase implements ICommandHandler<DeleteBlogCommand> {
-  constructor(private blogsRepository: BlogsSqlRepository) {}
+  constructor(private blogsRepository: BlogsRepository) {}
   async execute(command: DeleteBlogCommand) {
     const blog = await this.blogsRepository.findOrNotFoundFail(command.id);
     blog.makeDeleted();

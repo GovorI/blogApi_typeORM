@@ -9,8 +9,6 @@ export enum Environments {
   TESTING = 'testing',
 }
 
-// each module has it's own *.config.ts
-
 @Injectable()
 export class CoreConfig {
   constructor(private configService: ConfigService<any, true>) {

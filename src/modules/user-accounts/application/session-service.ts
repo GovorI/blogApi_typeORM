@@ -1,13 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { SessionsSqlRepository } from '../infrastructure/sessions.sql-repository';
+import { SessionsRepository } from '../infrastructure/sessions.repository';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
+import { UserWithDeviceContextDto } from '../guards/dto/user-context.dto';
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly sessionsRepository: SessionsSqlRepository) {}
+  constructor(private readonly sessionsRepository: SessionsRepository) {}
 
-  async deleteSession(userId: string, deviceId: string): Promise<void> {
+  async deleteSession(
+    user: UserWithDeviceContextDto,
+    deviceId: string,
+  ): Promise<void> {
+    if (user.deviceId === deviceId) {
+      throw new DomainException({
+        code: DomainExceptionCode.Forbidden,
+        message: 'Cannot delete current session',
+      });
+    }
     const session =
       await this.sessionsRepository.findSessionByDeviceId(deviceId);
 
@@ -18,7 +28,7 @@ export class SessionService {
       });
     }
 
-    if (session.userId !== userId) {
+    if (session.userId !== user.id) {
       throw new DomainException({
         code: DomainExceptionCode.Forbidden,
         message: 'Cannot delete session that belongs to another user',

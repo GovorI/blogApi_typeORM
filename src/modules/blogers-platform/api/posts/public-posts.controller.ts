@@ -29,7 +29,7 @@ import { CreatePostForBlogCommand } from '../../application/use-cases/posts/crea
 import { CommandBus } from '@nestjs/cqrs';
 import { CreateCommentForPostCommand } from '../../application/use-cases/comments/create-comment-for-post.use-case';
 import { SetLikeStatusForPostCommand } from '../../application/use-cases/likes/set-like-status-for-post.use-case';
-import { PostsSqlRepository } from '../../infrastructure/posts-sql-repository';
+import { PostsRepository } from '../../infrastructure/posts.repository';
 import { PostsQueryRepository } from '../../infrastructure/posts.query-repository';
 import { GetCommentsQueryParams } from '../comments/get-comments-query-params.input-dto';
 
@@ -37,7 +37,6 @@ import { GetCommentsQueryParams } from '../comments/get-comments-query-params.in
 export class PublicPostsController {
   constructor(
     private readonly postsQueryRepository: PostsQueryRepository,
-    private readonly postsSqlRepository: PostsSqlRepository,
     private readonly commentsQueryRepository: CommentsQueryRepository,
     private readonly commandBus: CommandBus,
   ) {}
@@ -93,8 +92,6 @@ export class PublicPostsController {
         user.id,
       ),
     );
-
-    console.log('comment:', commentId);
 
     return this.commentsQueryRepository.getByIdOrNotFoundFail(
       commentId,

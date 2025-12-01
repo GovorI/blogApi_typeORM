@@ -34,10 +34,13 @@ import { RegistrationConfirmationUseCase } from './application/use-cases/registr
 import { RegistrationEmailResendingUseCase } from './application/use-cases/registration-email-resending.use-case';
 import { GetMeUseCase } from './application/use-cases/get-me.use-case';
 import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-case';
-import { UsersSqlRepository } from './infrastructure/users.sql-repository';
-import { UsersSqlQueryRepository } from './infrastructure/users.sql-query-repository';
-import { SessionsSqlRepository } from './infrastructure/sessions.sql-repository';
-import { SessionsSqlQueryRepository } from './infrastructure/sessions.sql-query-repository';
+import { UsersRepository } from './infrastructure/users.repository';
+import { UsersQueryRepository } from './infrastructure/users.query-repository';
+import { SessionsRepository } from './infrastructure/sessions.repository';
+import { SessionsQueryRepository } from './infrastructure/sessions.query-repository';
+import { UserEntity } from './domain/user-entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { SessionEntity } from './domain/session-entity';
 
 const useCases = [
   LoginUserUseCase,
@@ -53,6 +56,7 @@ const useCases = [
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserEntity, SessionEntity]),
     PassportModule.register({}),
     JwtAuthModule,
     NotificationsModule,
@@ -64,10 +68,10 @@ const useCases = [
     AuthService,
     SessionService,
     // SessionCleanupService,
-    SessionsSqlRepository,
-    SessionsSqlQueryRepository,
-    UsersSqlRepository,
-    UsersSqlQueryRepository,
+    SessionsRepository,
+    SessionsQueryRepository,
+    UsersRepository,
+    UsersQueryRepository,
     CryptoService,
     LocalStrategy,
     LocalAuthGuard,
@@ -85,6 +89,6 @@ const useCases = [
     RateLimiterConfig,
     ...useCases,
   ],
-  exports: [AuthService, UsersService, SessionService, UsersSqlRepository],
+  exports: [AuthService, UsersService, SessionService, UsersRepository],
 })
 export class UserAccountsModule {}

@@ -6,12 +6,12 @@ import {
 import { UserEntity } from '../domain/user-entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { CryptoService } from './crypto-service';
-import { UsersSqlRepository } from '../infrastructure/users.sql-repository';
+import { UsersRepository } from '../infrastructure/users.repository';
 
 @Injectable()
 export class UsersService {
   constructor(
-    private usersRepository: UsersSqlRepository,
+    private usersRepository: UsersRepository,
     private bcryptService: CryptoService,
   ) {}
 
@@ -28,7 +28,7 @@ export class UsersService {
       throw new BadRequestException('Email already exists');
     }
 
-    const user = new UserEntity({
+    const user = this.usersRepository.create({
       login: dto.login,
       email: dto.email,
       passwordHash: await this.bcryptService.createPassHash(dto.password),
@@ -36,7 +36,7 @@ export class UsersService {
       confirmCode: null,
       expirationCode: null,
       passwordRecoveryCode: null,
-      passwordRecoveryExpiration: null,
+      passwordRecoveryCodeExpiration: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,

@@ -5,17 +5,29 @@ import {
   PostsSortBy,
 } from '../api/posts/get-posts-query-params.input-dto';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
-// Импортируем и DTO, и наш новый тип-контракт
-import { PostViewDto, PostViewModelData } from '../api/view-dto/post.view-dto';
+import { PostViewDto } from '../api/view-dto/post.view-dto';
 import { SortDirection } from '../../../core/dto/base.query-params.input-dto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ISqlPost } from './posts-sql-repository';
-import { BlogsSqlRepository } from './blogs.sql-repository';
+import { BlogsRepository } from './blogs.repository';
 import { LikeStatuses } from '../dto/like-status.dto';
+import { NewestLikeInfo, PostEntity } from '../domain/post-entity';
 
-export interface NewestLikeDto {
-  addedAt: string;
+interface RawPostQueryResult {
+  id: string;
+  title: string;
+  shortDescription: string;
+  content: string;
+  blogId: string;
+  blogName: string;
+  createdAt: string | Date; // TypeORM может вернуть как строку, так и Date
+  likesCount: number;
+  dislikesCount: number;
+  myStatus: LikeStatuses | null;
+}
+
+interface RawNewestLikeResult {
+  addedAt: string | Date;
   userId: string;
   login: string;
 }
@@ -24,149 +36,97 @@ export interface NewestLikeDto {
 export class PostsQueryRepository {
   constructor(
     @InjectDataSource() private dataSource: DataSource,
-    private blogsSqlRepository: BlogsSqlRepository,
+    private blogsRepository: BlogsRepository,
   ) {}
-
-  private async _mapDbPostToView(
-    post: ISqlPost & {
-      blogName?: string;
-      likesCount?: number;
-      dislikesCount?: number;
-      myStatus?: 'Like' | 'Dislike' | 'None';
-      newestLikes?: Array<{ addedAt: Date; userId: string; login: string }>;
-    },
-  ): Promise<PostViewDto> {
-    let blogName = post.blogName;
-    if (!blogName) {
-      const blogResult: { name: string }[] = await this.dataSource.query(
-        `SELECT name FROM "Blogs" WHERE id = $1`,
-        [post.blogId],
-      );
-      blogName = blogResult[0]?.name || 'Unknown Blog';
-    }
-
-    const postForView: PostViewModelData = {
-      id: post.id,
-      title: post.title,
-      shortDescription: post.shortDescription,
-      content: post.content,
-      blogId: post.blogId,
-      blogName: blogName,
-      createdAt: new Date(post.createdAt),
-      extendedLikesInfo: {
-        likesCount: post.likesCount || 0,
-        dislikesCount: post.dislikesCount || 0,
-        myStatus:
-          (post.myStatus as 'Like' | 'Dislike' | 'None') || LikeStatuses.None,
-        newestLikes: post.newestLikes || [],
-      },
-    };
-
-    return PostViewDto.mapToView(postForView);
-  }
 
   async getPostsForBlog(
     blogId: string,
     query: GetPostsQueryParams,
     currentUserId?: string,
   ): Promise<PaginatedViewDto<PostViewDto[]>> {
-    await this.blogsSqlRepository.findOrNotFoundFail(blogId);
-    const params: any[] = [blogId];
+    // Проверяем существование блога
+    await this.blogsRepository.findOrNotFoundFail(blogId);
+
+    const postsRepo = this.dataSource.getRepository(PostEntity);
+
+    const queryBuilder = postsRepo
+      .createQueryBuilder('post')
+      .leftJoin('post.blog', 'blog')
+      .leftJoin('PostLikes', 'pl', 'pl.postId = post.id')
+      .select('post.id', 'id')
+      .addSelect('post.title', 'title')
+      .addSelect('post.shortDescription', 'shortDescription')
+      .addSelect('post.content', 'content')
+      .addSelect('post.blogId', 'blogId')
+      .addSelect('post.createdAt', 'createdAt')
+      .addSelect('blog.name', 'blogName')
+      .addSelect('COUNT(CASE WHEN pl.status = :like THEN 1 END)', 'likesCount')
+      .addSelect(
+        'COUNT(CASE WHEN pl.status = :dislike THEN 1 END)',
+        'dislikesCount',
+      )
+      .setParameter('like', LikeStatuses.Like)
+      .setParameter('dislike', LikeStatuses.Dislike)
+      .where('post.blogId = :blogId', { blogId })
+      .andWhere('post.deletedAt IS NULL')
+      .groupBy('post.id')
+      .addGroupBy('blog.name');
 
     if (currentUserId) {
-      params.push(currentUserId);
+      queryBuilder.addSelect(
+        'MAX(CASE WHEN pl.userId = :userId THEN pl.status ELSE NULL END)',
+        'myStatus',
+      );
+      queryBuilder.setParameter('userId', currentUserId);
+    } else {
+      queryBuilder.addSelect('NULL', 'myStatus');
     }
 
-    const limit = query.pageSize;
-    const offset = (query.pageNumber - 1) * query.pageSize;
-    params.push(limit, offset);
+    // Получаем totalCount до применения пагинации
+    const totalCount = await queryBuilder.getCount();
 
-    const filter = `WHERE p."blogId" = $1 AND p."deletedAt" IS NULL`;
+    // Сортировка
     const sortBy = query.sortBy || PostsSortBy.CreatedAt;
-    const sortDirection =
-      query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
-    // Выбираем корректную колонку для сортировки: по имени блога сортируем через таблицу Blogs
-    const sortColumnForBlog =
-      sortBy === PostsSortBy.BlogName ? 'b."name"' : `p."${sortBy}"`;
-
-    // Parameter indices: $1=blogId, $2=currentUserId (if exists), $3=limit, $4=offset
-    const postsWithLikesQuery = `
-      WITH post_likes AS (
-        SELECT 
-          pl."postId",
-          COUNT(CASE WHEN pl.status = 'Like' THEN 1 END) AS likes_count,
-          COUNT(CASE WHEN pl.status = 'Dislike' THEN 1 END) AS dislikes_count
-          ${currentUserId ? `, MAX(CASE WHEN pl."userId" = $2::UUID THEN pl.status ELSE NULL END) AS my_status` : `, NULL AS my_status`}
-        FROM "postLikes" pl
-        INNER JOIN "Posts" p ON pl."postId" = p.id
-        WHERE p."blogId" = $1 AND p."deletedAt" IS NULL
-        GROUP BY pl."postId"
-      )
-      SELECT 
-        p.*,
-        b.name AS "blogName",
-        COALESCE(pl.likes_count, 0)::int AS "likesCount",
-        COALESCE(pl.dislikes_count, 0)::int AS "dislikesCount",
-        COALESCE(pl.my_status, NULL) AS "myStatus"
-      FROM "Posts" p
-      LEFT JOIN "Blogs" b ON p."blogId" = b.id
-      LEFT JOIN "post_likes" pl ON p.id = pl."postId"
-      ${filter}
-      ORDER BY ${sortColumnForBlog} ${sortDirection}
-      LIMIT $${currentUserId ? 3 : 2} OFFSET $${currentUserId ? 4 : 3}
-    `;
-
-    const totalCountQuery = `SELECT count(*) FROM "Posts" p ${filter}`;
-    const totalCountResult: { count: string }[] = await this.dataSource.query(
-      totalCountQuery,
-      params.slice(0, 1), // Only pass blogId for count query
-    );
-    const totalCount = parseInt(totalCountResult[0].count, 10);
-
-    const rawPosts: (ISqlPost & {
-      blogName?: string;
-      likesCount?: number;
-      dislikesCount?: number;
-      myStatus?: string;
-    })[] = await this.dataSource.query(postsWithLikesQuery, params);
-
-    // Fetch newest likes for each post
-    const postsWithNewestLikes = await Promise.all(
-      rawPosts.map(async (post) => {
-        const newestLikesQuery = `
-          SELECT 
-            pl."createdAt" AS "addedAt",
-            pl."userId",
-            u.login
-          FROM "postLikes" pl
-          LEFT JOIN "Users" u ON pl."userId" = u.id
-          WHERE pl."postId" = $1 
-            AND pl.status = 'Like'
-          ORDER BY pl."createdAt" DESC
-          LIMIT 3
-        `;
-        const newestLikes: NewestLikeDto[] = await this.dataSource.query(
-          newestLikesQuery,
-          [post.id],
-        );
-        return {
-          ...post,
-          newestLikes: newestLikes.map((like: NewestLikeDto) => ({
-            addedAt: new Date(like.addedAt),
-            userId: like.userId,
-            login: like.login,
-          })),
-        };
-      }),
+    let sortField: string;
+    if (sortBy === PostsSortBy.BlogName) {
+      sortField = 'blog.name';
+    } else if (sortBy === PostsSortBy.CreatedAt) {
+      sortField = 'post.createdAt';
+    } else {
+      sortField = `post.${sortBy}`;
+    }
+    queryBuilder.orderBy(
+      sortField,
+      query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC',
     );
 
+    // Пагинация
+    queryBuilder
+      .limit(query.pageSize)
+      .offset((query.pageNumber - 1) * query.pageSize);
+
+    const rawPosts = await queryBuilder.getRawMany<RawPostQueryResult>();
+
+    // Добавляем newest likes для каждого поста
     const items = await Promise.all(
-      postsWithNewestLikes.map((p) =>
-        this._mapDbPostToView({
-          ...p,
-          myStatus: p.myStatus as 'Like' | 'Dislike' | 'None' | undefined,
-        }),
-      ),
+      rawPosts.map(async (post) => {
+        const newestLikes = await this.getNewestLikes(post.id);
+        return {
+          id: post.id,
+          title: post.title,
+          shortDescription: post.shortDescription,
+          content: post.content,
+          blogId: post.blogId,
+          blogName: post.blogName,
+          createdAt: new Date(post.createdAt),
+          extendedLikesInfo: {
+            likesCount: Number(post.likesCount) || 0,
+            dislikesCount: Number(post.dislikesCount) || 0,
+            myStatus: post.myStatus || LikeStatuses.None,
+            newestLikes: newestLikes,
+          },
+        } as PostViewDto;
+      }),
     );
 
     return PaginatedViewDto.mapToView({
@@ -181,100 +141,82 @@ export class PostsQueryRepository {
     query: GetPostsQueryParams,
     currentUserId?: string,
   ): Promise<PaginatedViewDto<PostViewDto[]>> {
-    const params: any[] = [];
+    const postsRepo = this.dataSource.getRepository(PostEntity);
+
+    const queryBuilder = postsRepo
+      .createQueryBuilder('post')
+      .leftJoin('post.blog', 'blog')
+      .leftJoin('PostLikes', 'pl', 'pl.postId = post.id')
+      .select('post.id', 'id')
+      .addSelect('post.title', 'title')
+      .addSelect('post.shortDescription', 'shortDescription')
+      .addSelect('post.content', 'content')
+      .addSelect('post.blogId', 'blogId')
+      .addSelect('post.createdAt', 'createdAt')
+      .addSelect('blog.name', 'blogName')
+      .addSelect('COUNT(CASE WHEN pl.status = :like THEN 1 END)', 'likesCount')
+      .addSelect(
+        'COUNT(CASE WHEN pl.status = :dislike THEN 1 END)',
+        'dislikesCount',
+      )
+      .setParameter('like', LikeStatuses.Like)
+      .setParameter('dislike', LikeStatuses.Dislike)
+      .where('post.deletedAt IS NULL')
+      .groupBy('post.id')
+      .addGroupBy('blog.name');
 
     if (currentUserId) {
-      params.push(currentUserId);
+      queryBuilder.addSelect(
+        'MAX(CASE WHEN pl.userId = :userId THEN pl.status ELSE NULL END)',
+        'myStatus',
+      );
+      queryBuilder.setParameter('userId', currentUserId);
+    } else {
+      queryBuilder.addSelect('NULL', 'myStatus');
     }
 
-    const limit = query.pageSize;
-    const offset = (query.pageNumber - 1) * query.pageSize;
-    params.push(limit, offset);
+    // Получаем totalCount до применения пагинации
+    const totalCount = await queryBuilder.getCount();
 
-    const filter = `WHERE p."deletedAt" IS NULL`;
+    // Сортировка и пагинация
     const sortBy = query.sortBy || PostsSortBy.CreatedAt;
-    const sortDirection =
-      query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
-    // Выбираем корректную колонку для сортировки: по имени блога сортируем через таблицу Blogs
-    const sortColumn =
-      sortBy === PostsSortBy.BlogName ? 'b."name"' : `p."${sortBy}"`;
-
-    // Parameter indices: $1=currentUserId (if exists), $2=limit, $3=offset
-    const postsWithLikesQuery = `
-      WITH post_likes AS (
-        SELECT 
-          pl."postId",
-          COUNT(CASE WHEN pl.status = 'Like' THEN 1 END) AS likes_count,
-          COUNT(CASE WHEN pl.status = 'Dislike' THEN 1 END) AS dislikes_count
-          ${currentUserId ? `, MAX(CASE WHEN pl."userId" = $1::UUID THEN pl.status ELSE NULL END) AS my_status` : `, NULL AS my_status`}
-        FROM "postLikes" pl
-        INNER JOIN "Posts" p ON pl."postId" = p.id
-        WHERE p."deletedAt" IS NULL
-        GROUP BY pl."postId"
+    let sortField: string;
+    if (sortBy === PostsSortBy.BlogName) {
+      sortField = 'blog.name';
+    } else if (sortBy === PostsSortBy.CreatedAt) {
+      sortField = 'post.createdAt';
+    } else {
+      sortField = `post.${sortBy}`;
+    }
+    queryBuilder
+      .orderBy(
+        sortField,
+        query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC',
       )
-      SELECT 
-        p.*,
-        b.name AS "blogName",
-        COALESCE(pl.likes_count, 0)::int AS "likesCount",
-        COALESCE(pl.dislikes_count, 0)::int AS "dislikesCount",
-        COALESCE(pl.my_status, NULL) AS "myStatus"
-      FROM "Posts" p
-      LEFT JOIN "Blogs" b ON p."blogId" = b.id
-      LEFT JOIN "post_likes" pl ON p.id = pl."postId"
-      ${filter}
-      ORDER BY ${sortColumn} ${sortDirection}
-      LIMIT $${currentUserId ? 2 : 1} OFFSET $${currentUserId ? 3 : 2}
-    `;
+      .limit(query.pageSize)
+      .offset((query.pageNumber - 1) * query.pageSize);
 
-    const totalCountQuery = `SELECT count(*) FROM "Posts" p ${filter}`;
-    const totalCountResult: { count: string }[] =
-      await this.dataSource.query(totalCountQuery);
-    const totalCount: number = parseInt(totalCountResult[0].count, 10);
-
-    const rawPosts: (ISqlPost & {
-      blogName?: string;
-      likesCount?: number;
-      dislikesCount?: number;
-      myStatus?: string;
-    })[] = await this.dataSource.query(postsWithLikesQuery, params);
-
-    // Fetch newest likes for each post
-    const postsWithNewestLikes = await Promise.all(
-      rawPosts.map(async (post) => {
-        const newestLikesQuery = `
-          SELECT 
-            pl."createdAt" AS "addedAt",
-            pl."userId",
-            u.login
-          FROM "postLikes" pl
-          LEFT JOIN "Users" u ON pl."userId" = u.id
-          WHERE pl."postId" = $1 
-            AND pl.status = 'Like'
-          ORDER BY pl."createdAt" DESC
-          LIMIT 3
-        `;
-        const newestLikes: NewestLikeDto[] = await this.dataSource.query(
-          newestLikesQuery,
-          [post.id],
-        );
-        return {
-          ...post,
-          newestLikes: newestLikes.map((like: NewestLikeDto) => ({
-            addedAt: new Date(like.addedAt),
-            userId: like.userId,
-            login: like.login,
-          })),
-        };
-      }),
-    );
+    const rawPosts = await queryBuilder.getRawMany<RawPostQueryResult>();
 
     const items = await Promise.all(
-      postsWithNewestLikes.map((p) =>
-        this._mapDbPostToView({
-          ...p,
-          myStatus: p.myStatus as 'Like' | 'Dislike' | 'None' | undefined,
-        }),
-      ),
+      rawPosts.map(async (post) => {
+        const newestLikes = await this.getNewestLikes(post.id);
+        return {
+          id: post.id,
+          title: post.title,
+          shortDescription: post.shortDescription,
+          content: post.content,
+          blogId: post.blogId,
+          blogName: post.blogName,
+          createdAt: new Date(post.createdAt),
+          extendedLikesInfo: {
+            likesCount: Number(post.likesCount) || 0,
+            dislikesCount: Number(post.dislikesCount) || 0,
+            myStatus: post.myStatus || LikeStatuses.None,
+            newestLikes: newestLikes,
+          },
+        } as PostViewDto;
+      }),
     );
 
     return PaginatedViewDto.mapToView({
@@ -285,85 +227,88 @@ export class PostsQueryRepository {
     });
   }
 
+  private async getNewestLikes(postId: string): Promise<NewestLikeInfo[]> {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('pl.createdAt', 'addedAt')
+      .addSelect('pl.userId', 'userId')
+      .addSelect('u.login', 'login')
+      .from('PostLikes', 'pl')
+      .leftJoin('Users', 'u', 'pl.userId = u.id')
+      .where('pl.postId = :postId', { postId })
+      .andWhere('pl.status = :status', { status: LikeStatuses.Like })
+      .orderBy('pl.createdAt', 'DESC')
+      .limit(3)
+      .getRawMany<RawNewestLikeResult>();
+
+    return result.map((r) => ({
+      addedAt: new Date(r.addedAt),
+      userId: r.userId,
+      login: r.login,
+    }));
+  }
+
   async getByIdOrNotFoundFail(
     id: string,
     currentUserId?: string,
   ): Promise<PostViewDto> {
-    const params = [id];
+    const postsRepo = this.dataSource.getRepository(PostEntity);
+
+    const queryBuilder = postsRepo
+      .createQueryBuilder('post')
+      .leftJoin('post.blog', 'blog')
+      .leftJoin('PostLikes', 'pl', 'pl.postId = post.id')
+      .select('post.id', 'id')
+      .addSelect('post.title', 'title')
+      .addSelect('post.shortDescription', 'shortDescription')
+      .addSelect('post.content', 'content')
+      .addSelect('post.blogId', 'blogId')
+      .addSelect('post.createdAt', 'createdAt')
+      .addSelect('blog.name', 'blogName')
+      .addSelect('COUNT(CASE WHEN pl.status = :like THEN 1 END)', 'likesCount')
+      .addSelect(
+        'COUNT(CASE WHEN pl.status = :dislike THEN 1 END)',
+        'dislikesCount',
+      )
+      .setParameter('like', LikeStatuses.Like)
+      .setParameter('dislike', LikeStatuses.Dislike)
+      .where('post.id = :id', { id })
+      .andWhere('post.deletedAt IS NULL')
+      .groupBy('post.id')
+      .addGroupBy('blog.name');
+
     if (currentUserId) {
-      params.push(currentUserId);
+      queryBuilder.addSelect(
+        'MAX(CASE WHEN pl.userId = :userId THEN pl.status ELSE NULL END)',
+        'myStatus',
+      );
+      queryBuilder.setParameter('userId', currentUserId);
+    } else {
+      queryBuilder.addSelect('NULL', 'myStatus');
     }
 
-    // Parameter indices: $1=id, $2=currentUserId (if exists)
-    const postQuery = `
-      WITH post_likes AS (
-        SELECT 
-          pl."postId",
-          COUNT(CASE WHEN pl.status = 'Like' THEN 1 END) AS likes_count,
-          COUNT(CASE WHEN pl.status = 'Dislike' THEN 1 END) AS dislikes_count
-          ${currentUserId ? `, MAX(CASE WHEN pl."userId" = $2::UUID THEN pl.status ELSE NULL END) AS my_status` : `, NULL AS my_status`}
-        FROM "postLikes" pl
-        INNER JOIN "Posts" p ON pl."postId" = p.id
-        WHERE pl."postId" = $1 AND p."deletedAt" IS NULL
-        GROUP BY pl."postId"
-      )
-      SELECT 
-        p.*,
-        b.name AS "blogName",
-        COALESCE(pl.likes_count, 0)::int AS "likesCount",
-        COALESCE(pl.dislikes_count, 0)::int AS "dislikesCount",
-        COALESCE(pl.my_status, NULL) AS "myStatus"
-      FROM "Posts" p
-      LEFT JOIN "Blogs" b ON p."blogId" = b.id
-      LEFT JOIN "post_likes" pl ON p.id = pl."postId"
-      WHERE p.id = $1 AND p."deletedAt" IS NULL
-    `;
+    const rawPost = await queryBuilder.getRawOne<RawPostQueryResult>();
 
-    const rawPosts: (ISqlPost & {
-      blogName?: string;
-      likesCount?: number;
-      dislikesCount?: number;
-      myStatus?: string;
-    })[] = await this.dataSource.query(postQuery, params);
-
-    if (!rawPosts[0]) {
+    if (!rawPost) {
       throw new PostNotFoundException('Post not found');
     }
 
-    // Get newest likes for the post
-    const newestLikesQuery = `
-      SELECT 
-        pl."createdAt" AS "addedAt",
-        pl."userId",
-        u.login
-      FROM "postLikes" pl
-      LEFT JOIN "Users" u ON pl."userId" = u.id
-      WHERE pl."postId" = $1 
-        AND pl.status = 'Like'
-      ORDER BY pl."createdAt" DESC
-      LIMIT 3
-    `;
-    const newestLikes: NewestLikeDto[] = await this.dataSource.query(
-      newestLikesQuery,
-      [id],
-    );
+    const newestLikes = await this.getNewestLikes(id);
 
-    const postWithLikes = {
-      ...rawPosts[0],
-      newestLikes: newestLikes.map((like: NewestLikeDto) => ({
-        addedAt: new Date(like.addedAt),
-        userId: like.userId,
-        login: like.login,
-      })),
-    };
-
-    return this._mapDbPostToView({
-      ...postWithLikes,
-      myStatus: postWithLikes.myStatus as
-        | 'Like'
-        | 'Dislike'
-        | 'None'
-        | undefined,
-    });
+    return {
+      id: rawPost.id,
+      title: rawPost.title,
+      shortDescription: rawPost.shortDescription,
+      content: rawPost.content,
+      blogId: rawPost.blogId,
+      blogName: rawPost.blogName,
+      createdAt: new Date(rawPost.createdAt),
+      extendedLikesInfo: {
+        likesCount: Number(rawPost.likesCount) || 0,
+        dislikesCount: Number(rawPost.dislikesCount) || 0,
+        myStatus: rawPost.myStatus || LikeStatuses.None,
+        newestLikes: newestLikes,
+      },
+    } as PostViewDto;
   }
 }

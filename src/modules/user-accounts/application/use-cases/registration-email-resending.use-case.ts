@@ -1,7 +1,7 @@
 import { CommandHandler } from '@nestjs/cqrs';
 import { EmailResendingInputDto } from '../../api/input-dto/email-resending.input-dto';
 import { randomUUID } from 'crypto';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
 import { UsersConfig } from '../../config/users.config';
 import { EmailService } from '../../../notifications/email.service';
 
@@ -15,7 +15,7 @@ export class RegistrationEmailResendingCommand {
 @CommandHandler(RegistrationEmailResendingCommand)
 export class RegistrationEmailResendingUseCase {
   constructor(
-    private usersRepository: UsersSqlRepository,
+    private usersRepository: UsersRepository,
     private usersConfig: UsersConfig,
     private emailService: EmailService,
   ) {}

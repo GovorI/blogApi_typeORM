@@ -2,7 +2,7 @@ import { CommandHandler } from '@nestjs/cqrs';
 import { UnauthorizedException as DomainUnauthorizedException } from '../../../../core/domain';
 import { JwtService } from '../jwt-service';
 import { JwtConfig } from '../../../jwt/jwt.config';
-import { SessionsSqlRepository } from '../../infrastructure/sessions.sql-repository';
+import { SessionsRepository } from '../../infrastructure/sessions.repository';
 
 export class RefreshTokenCommand {
   constructor(public refreshToken: string) {}
@@ -13,7 +13,7 @@ export class RefreshTokenUseCase {
   constructor(
     private readonly jwtService: JwtService,
     private readonly jwtConfig: JwtConfig,
-    private readonly sessionsRepository: SessionsSqlRepository,
+    private readonly sessionsRepository: SessionsRepository,
   ) {}
 
   async execute(command: RefreshTokenCommand) {

@@ -6,7 +6,12 @@ import { IsUUID } from 'class-validator';
 export class UserContextDto {
   @IsUUID(4, { message: 'Invalid user ID format' })
   id: string;
-  deviceId?: string;
+  // deviceId?: string;
+}
+
+export class UserWithDeviceContextDto extends UserContextDto {
+  @IsUUID(4, { message: 'Invalid device ID format' })
+  deviceId: string;
 }
 
 export type Nullable<T> = { [P in keyof T]: T[P] | null };

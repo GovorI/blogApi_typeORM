@@ -1,6 +1,6 @@
 import { UnauthorizedException as DomainUnauthorizedException } from '../../../../core/domain';
 import { CommandHandler } from '@nestjs/cqrs';
-import { UsersSqlQueryRepository } from '../../infrastructure/users.sql-query-repository';
+import { UsersQueryRepository } from '../../infrastructure/users.query-repository';
 import { JwtService } from '../jwt-service';
 import { JwtPayload } from '../../domain/jwt-payload.interface';
 
@@ -12,7 +12,7 @@ export class GetMeCommand {
 export class GetMeUseCase {
   constructor(
     private jwtService: JwtService,
-    private usersQueryRepository: UsersSqlQueryRepository,
+    private usersQueryRepository: UsersQueryRepository,
   ) {}
 
   async execute(

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UsersSqlRepository } from '../infrastructure/users.sql-repository';
+import { UsersRepository } from '../infrastructure/users.repository';
 import { CryptoService } from './crypto-service';
 import { UserContextDto } from '../guards/dto/user-context.dto';
 import { TooManyRequestsException } from '../../../core/domain/domain.exception';
@@ -11,7 +11,7 @@ import { UserEntity } from '../domain/user-entity';
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersRepository: UsersSqlRepository,
+    private readonly usersRepository: UsersRepository,
     private readonly cryptoService: CryptoService,
     private readonly rateLimiter: RateLimiterService,
     private readonly usersConfig: UsersConfig,

@@ -28,7 +28,7 @@ export class UpdateCommentUseCase
         message: 'You are not allowed to edit this comment',
       });
     }
-    comment.content = command.updateCommentDto.content;
+    comment.update(command.updateCommentDto.content);
     return this.commentRepository.save(comment);
   }
 }

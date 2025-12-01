@@ -1,7 +1,7 @@
 import { CommandHandler } from '@nestjs/cqrs';
 import { UnauthorizedException as DomainUnauthorizedException } from '../../../../core/domain';
 import { JwtService } from '../jwt-service';
-import { SessionsSqlRepository } from '../../infrastructure/sessions.sql-repository';
+import { SessionsRepository } from '../../infrastructure/sessions.repository';
 
 export class LogoutUserCommand {
   constructor(public readonly refreshToken: string) {}
@@ -11,7 +11,7 @@ export class LogoutUserCommand {
 export class LogoutUserUseCase {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly sessionsRepository: SessionsSqlRepository,
+    private readonly sessionsRepository: SessionsRepository,
   ) {}
 
   async execute(command: LogoutUserCommand) {

@@ -8,7 +8,8 @@ import { CommentNotFoundException } from '../../../core/domain/domain.exception'
 import { SortDirection } from '../../../core/dto/base.query-params.input-dto';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
-import { PostsSqlRepository } from './posts-sql-repository';
+import { PostsRepository } from './posts.repository';
+import { CommentEntity } from '../domain/comment-entity';
 
 export interface RawSqlComment {
   id: string;
@@ -21,77 +22,89 @@ export interface RawSqlComment {
   myStatus?: 'Like' | 'Dislike' | 'None';
 }
 
+interface RawCommentQueryResult {
+  id: string;
+  content: string;
+  createdAt: string | Date;
+  userId: string;
+  userLogin: string;
+  likesCount: number;
+  dislikesCount: number;
+  myStatus: 'Like' | 'Dislike' | null;
+}
+
 @Injectable()
 export class CommentsQueryRepository {
   constructor(
     @InjectDataSource() private dataSource: DataSource,
-    private postsSqlRepository: PostsSqlRepository,
+    private postsSqlRepository: PostsRepository,
   ) {}
 
   async getByIdOrNotFoundFail(
     commentId: string,
     currentUserId?: string,
   ): Promise<CommentViewDto> {
-    try {
-      const query = `SELECT
-        c.id,
-        c.content,
-        c."createdAt",
-        u.id AS "userId",
-        u.login AS "userLogin",
-        (
-          SELECT COUNT(*)
-          FROM "commentLikes" cl
-          WHERE cl."commentId" = c.id AND cl.status = 'Like'
-        ) AS "likesCount",
-        (
-          SELECT COUNT(*)
-          FROM "commentLikes" cl
-          WHERE cl."commentId" = c.id AND cl.status = 'Dislike'
-        ) AS "dislikesCount",
-        CASE
-          WHEN $2::UUID IS NOT NULL THEN (
-            SELECT cl.status
-            FROM "commentLikes" cl
-            WHERE cl."commentId" = c.id AND cl."userId" = $2::UUID
-          )
-          ELSE NULL
-        END AS "myStatus"
-      FROM
-        "Comments" c
-      LEFT JOIN
-        "Users" u ON c."userId" = u.id
-      WHERE
-        c.id = $1 AND c."deletedAt" IS NULL
-      `;
+    const commentsRepo = this.dataSource.getRepository(CommentEntity);
+    const queryBuilder = commentsRepo
+      .createQueryBuilder('comment')
+      .leftJoin('Users', 'user', 'user.id = comment.userId')
+      .leftJoin('CommentLikes', 'cl', 'cl.commentId = comment.id')
+      .select([
+        'comment.id as "id"',
+        'comment.content as "content"',
+        'comment.createdAt as "createdAt"',
+        'user.id as "userId"',
+        'user.login as "userLogin"',
+      ])
+      .addSelect(
+        'COUNT(CASE WHEN cl.status = :likeStatus THEN 1 ELSE NULL END)',
+        'likesCount',
+      )
+      .setParameter('likeStatus', 'Like')
+      .addSelect(
+        'COUNT(CASE WHEN cl.status = :dislikeStatus THEN 1 ELSE NULL END)',
+        'dislikesCount',
+      )
+      .setParameter('dislikeStatus', 'Dislike')
+      .where('comment.id = :commentId', { commentId })
+      .andWhere('comment.deletedAt IS NULL')
+      .groupBy('comment.id')
+      .addGroupBy('comment.content')
+      .addGroupBy('comment.createdAt')
+      .addGroupBy('user.id')
+      .addGroupBy('user.login');
 
-      console.log('Executing query with parameters:', {
-        commentId,
-        currentUserId,
-      });
-      const result: RawSqlComment[] = await this.dataSource.query(query, [
-        commentId,
-        currentUserId,
-      ]);
-      console.log('Query result:', result);
-
-      if (!result[0]) {
-        throw new CommentNotFoundException('Comment not found');
-      }
-
-      return CommentViewDto.mapToView(result[0]);
-    } catch (e) {
-      console.log('Error in getByIdOrNotFoundFail:', e);
-      // If it's already a DomainException, re-throw it as-is
-      if (e instanceof DomainException) {
-        throw e;
-      }
-      throw new DomainException({
-        code: DomainExceptionCode.InternalServerError,
-        message: 'Database error during comment retrieval',
-        extensions: [{ message: e.message, key: 'database' }],
-      });
+    if (currentUserId) {
+      queryBuilder
+        .addSelect(
+          'MAX(CASE WHEN cl.userId = :currentUserId THEN cl.status ELSE NULL END)',
+          'myStatus',
+        )
+        .setParameter('currentUserId', currentUserId);
+    } else {
+      queryBuilder.addSelect('NULL', 'myStatus');
     }
+
+    const rawComment = await queryBuilder.getRawOne<RawCommentQueryResult>();
+
+    if (!rawComment) {
+      throw new CommentNotFoundException('Comment not found');
+    }
+
+    return {
+      id: rawComment.id,
+      content: rawComment.content,
+      createdAt: new Date(rawComment.createdAt),
+      commentatorInfo: {
+        userId: rawComment.userId,
+        userLogin: rawComment.userLogin,
+      },
+      likesInfo: {
+        likesCount: parseInt(String(rawComment.likesCount || 0), 10),
+        dislikesCount: parseInt(String(rawComment.dislikesCount || 0), 10),
+        myStatus: rawComment.myStatus || 'None',
+      },
+    } as CommentViewDto;
   }
 
   async getAllCommentsForPost(
@@ -99,104 +112,91 @@ export class CommentsQueryRepository {
     query: GetCommentsQueryParams,
     currentUserId?: string,
   ): Promise<PaginatedViewDto<CommentViewDto[]>> {
-    try {
-      await this.postsSqlRepository.findOrNotFoundFail(postId);
-      console.log('CURRENT USER ID -->', currentUserId);
-      const skip = query.calculateSkip();
-      const limit = query.pageSize;
-      const sortField = query.sortBy ? `"${query.sortBy}"` : '"createdAt"';
-      const sortDirection =
-        query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
+    await this.postsSqlRepository.findOrNotFoundFail(postId);
 
-      const params: any[] = [postId, limit];
-      if (currentUserId) {
-        params.push(currentUserId);
-      } else {
-        params.push(null); // Pass null instead of undefined
-      }
-      params.push(skip);
+    const skip = query.calculateSkip();
+    const limit = query.pageSize;
+    const commentsRepo = this.dataSource.getRepository(CommentEntity);
 
-      const queryStr = `
-    WITH comment_likes AS (
-      SELECT 
-        cl."commentId" AS comment_id,
-        COUNT(CASE WHEN cl.status = 'Like' THEN 1 END) AS likes_count,
-        COUNT(CASE WHEN cl.status = 'Dislike' THEN 1 END) AS dislikes_count,
-        MAX(CASE WHEN cl."userId" = $3::UUID THEN cl.status ELSE NULL END) AS my_status
-      FROM "commentLikes" cl
-      INNER JOIN "Comments" c ON cl."commentId" = c.id
-      WHERE c."postId" = $1 AND c."deletedAt" IS NULL
-      GROUP BY cl."commentId"
-    )
-    SELECT 
-      c.id,
-      c.content,
-      c."createdAt",
-      u.id AS "userId",
-      u.login AS "userLogin",
-      COALESCE(cl.likes_count, 0)::int AS "likesCount",
-      COALESCE(cl.dislikes_count, 0)::int AS "dislikesCount",
-      COALESCE(cl.my_status, NULL) AS "myStatus",
-      COUNT(*) OVER() AS "totalCount"
-    FROM "Comments" c
-    LEFT JOIN "Users" u ON c."userId" = u.id
-    LEFT JOIN "comment_likes" cl ON c.id = cl.comment_id
-    WHERE c."postId" = $1 AND c."deletedAt" IS NULL
-    ORDER BY c.${sortField} ${sortDirection}
-    LIMIT $2 OFFSET $4
-  `;
+    const queryBuilder = commentsRepo
+      .createQueryBuilder('comment')
+      .leftJoin('Users', 'user', 'user.id = comment.userId')
+      .leftJoin('CommentLikes', 'cl', 'cl.commentId = comment.id')
+      .select([
+        'comment.id as "id"',
+        'comment.content as "content"',
+        'comment.createdAt as "createdAt"',
+        'user.id as "userId"',
+        'user.login as "userLogin"',
+      ])
+      .addSelect(
+        'COUNT(CASE WHEN cl.status = :likeStatus THEN 1 ELSE NULL END)',
+        'likesCount',
+      )
+      .setParameter('likeStatus', 'Like')
+      .addSelect(
+        'COUNT(CASE WHEN cl.status = :dislikeStatus THEN 1 ELSE NULL END)',
+        'dislikesCount',
+      )
+      .setParameter('dislikeStatus', 'Dislike')
+      .where('comment.postId = :postId', { postId })
+      .andWhere('comment.deletedAt IS NULL')
+      .groupBy('comment.id')
+      .addGroupBy('comment.content')
+      .addGroupBy('comment.createdAt')
+      .addGroupBy('user.id')
+      .addGroupBy('user.login');
 
-      console.log('Executing getAllCommentsForPost query with parameters:', {
-        postId,
-        limit,
-        currentUserId,
-        skip,
-      });
-      const result = await this.dataSource.query<
-        Array<RawSqlComment & { totalCount: string }>
-      >(queryStr, params);
-      console.log('Query result:', result);
-
-      // Handle case when there are no comments
-      if (result.length === 0) {
-        console.log('No comments found, getting total count separately');
-        // Get total count separately when there are no results
-        const countQuery = `
-          SELECT COUNT(*) as "totalCount"
-          FROM "Comments" c
-          WHERE c."postId" = $1 AND c."deletedAt" IS NULL
-        `;
-        const countResult = await this.dataSource.query(countQuery, [postId]);
-        console.log('Count query result:', countResult);
-        const totalCount = parseInt(countResult[0]?.totalCount || '0', 10);
-
-        return PaginatedViewDto.mapToView({
-          items: [],
-          totalCount,
-          pageNumber: query.pageNumber,
-          pageSize: query.pageSize,
-        });
-      }
-
-      const totalCount = parseInt(result[0]?.totalCount || '0', 10);
-      const items = result.map((comment) => CommentViewDto.mapToView(comment));
-
-      return PaginatedViewDto.mapToView({
-        items,
-        totalCount,
-        pageNumber: query.pageNumber,
-        pageSize: query.pageSize,
-      });
-    } catch (e) {
-      console.log('Error in getAllCommentsForPost:', e);
-      if (e instanceof DomainException) {
-        throw e;
-      }
-      throw new DomainException({
-        code: DomainExceptionCode.InternalServerError,
-        message: 'Database error during comment retrieval',
-        extensions: [{ message: e.message, key: 'database' }],
-      });
+    if (currentUserId) {
+      queryBuilder
+        .addSelect(
+          'MAX(CASE WHEN cl.userId = :currentUserId THEN cl.status ELSE NULL END)',
+          'myStatus',
+        )
+        .setParameter('currentUserId', currentUserId);
+    } else {
+      queryBuilder.addSelect('NULL', 'myStatus');
     }
+
+    const sortBy = query.sortBy || 'createdAt';
+    const sortField = `comment.${sortBy}`;
+    const sortDirection =
+      query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(sortField, sortDirection);
+
+    // Получаем общее количество комментариев до применения пагинации
+    // getCount() не работает корректно с GROUP BY, поэтому делаем отдельный запрос
+    const totalCount = await commentsRepo
+      .createQueryBuilder('comment')
+      .where('comment.postId = :postId', { postId })
+      .andWhere('comment.deletedAt IS NULL')
+      .getCount();
+
+    // Применяем пагинацию с помощью limit и offset
+    queryBuilder.limit(limit).offset(skip);
+
+    const rawComments = await queryBuilder.getRawMany<RawCommentQueryResult>();
+
+    const items = rawComments.map((comment) => ({
+      id: comment.id,
+      content: comment.content,
+      createdAt: new Date(comment.createdAt),
+      commentatorInfo: {
+        userId: comment.userId,
+        userLogin: comment.userLogin,
+      },
+      likesInfo: {
+        likesCount: parseInt(String(comment.likesCount || 0), 10),
+        dislikesCount: parseInt(String(comment.dislikesCount || 0), 10),
+        myStatus: comment.myStatus || 'None',
+      },
+    })) as CommentViewDto[];
+
+    return PaginatedViewDto.mapToView({
+      items,
+      totalCount,
+      pageNumber: query.pageNumber,
+      pageSize: query.pageSize,
+    });
   }
 }

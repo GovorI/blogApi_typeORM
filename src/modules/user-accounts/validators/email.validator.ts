@@ -5,7 +5,7 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
-import { UsersSqlRepository } from '../infrastructure/users.sql-repository';
+import { UsersRepository } from '../infrastructure/users.repository';
 import { UsersConfig } from '../config/users.config';
 
 /**
@@ -19,7 +19,7 @@ import { UsersConfig } from '../config/users.config';
 @Injectable()
 export class EmailValidator implements ValidatorConstraintInterface {
   constructor(
-    private readonly usersRepository: UsersSqlRepository,
+    private readonly usersRepository: UsersRepository,
     private readonly usersConfig: UsersConfig,
   ) {}
 

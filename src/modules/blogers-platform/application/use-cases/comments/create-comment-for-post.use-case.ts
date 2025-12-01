@@ -1,11 +1,9 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { UsersService } from '../../../../user-accounts/application/user-service';
 import { CommentRepository } from '../../../infrastructure/comment.repository';
-import { CommentEntity } from '../../../domain/comment-entity';
-import { randomUUID } from 'crypto';
 import { DomainException } from '../../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../../core/exceptions/domain-exception-codes';
-import { PostsSqlRepository } from '../../../infrastructure/posts-sql-repository';
+import { PostsRepository } from '../../../infrastructure/posts.repository';
 
 export class CreateCommentForPostCommand {
   constructor(
@@ -22,28 +20,23 @@ export class CreateCommentForPostUseCase
   constructor(
     private usersService: UsersService,
     private commentRepository: CommentRepository,
-    private postsSqlRepository: PostsSqlRepository,
+    private postsRepository: PostsRepository,
   ) {}
 
   async execute(command: CreateCommentForPostCommand): Promise<string> {
-    console.log('CreateCommentForPostUseCase started with:', command);
     try {
       await this.usersService.getUserByIdOrNotFound(command.userId);
-      await this.postsSqlRepository.findOrNotFoundFail(command.postId);
+      await this.postsRepository.findOrNotFoundFail(command.postId);
 
-      const comment = new CommentEntity({
-        id: randomUUID(),
+      const comment = this.commentRepository.create({
         postId: command.postId,
         content: command.content,
         userId: command.userId,
       });
-      console.log('Comment entity created:', comment);
 
       await this.commentRepository.save(comment);
-      console.log('Comment saved successfully');
       return comment.id;
     } catch (e) {
-      console.log('Error in CreateCommentForPostUseCase:', e);
       if (e instanceof DomainException) {
         throw e;
       }

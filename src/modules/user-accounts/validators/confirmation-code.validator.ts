@@ -6,7 +6,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import { UsersSqlRepository } from '../infrastructure/users.sql-repository';
+import { UsersRepository } from '../infrastructure/users.repository';
 
 /**
  * Валидатор для проверки кода подтверждения email
@@ -20,7 +20,7 @@ import { UsersSqlRepository } from '../infrastructure/users.sql-repository';
 export class ConfirmationCodeConstraint
   implements ValidatorConstraintInterface
 {
-  constructor(private readonly usersRepository: UsersSqlRepository) {}
+  constructor(private readonly usersRepository: UsersRepository) {}
 
   async validate(code: any) {
     if (typeof code !== 'string' || !code.trim()) return false;

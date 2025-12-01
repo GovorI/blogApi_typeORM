@@ -17,13 +17,13 @@ import { CreateUserInputDto } from './input-dto/users.input-dto';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
 import { GetUsersQueryParams } from './input-dto/get-users-query-params.input-dto';
 import { BasicAuthGuard } from '../guards/basic/basic-auth.guard';
-import { UsersSqlQueryRepository } from '../infrastructure/users.sql-query-repository';
+import { UsersQueryRepository } from '../infrastructure/users.query-repository';
 
 @Controller('sa')
 export class UserController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly usersQueryRepository: UsersSqlQueryRepository,
+    private readonly usersQueryRepository: UsersQueryRepository,
   ) {}
 
   @Get('users')

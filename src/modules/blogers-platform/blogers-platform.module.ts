@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SaBlogsController } from './api/blogs/sa-blogs.controller';
 import { BlogsQueryRepository } from './infrastructure/blogs.query-repository';
-import { PostsSqlRepository } from './infrastructure/posts-sql-repository';
+import { PostsRepository } from './infrastructure/posts.repository';
 import { PostsQueryRepository } from './infrastructure/posts.query-repository';
 import { PublicPostsController } from './api/posts/public-posts.controller';
 import { CommentsController } from './api/comments/comments.controller';
@@ -21,10 +21,16 @@ import { SetLikeStatusForPostUseCase } from './application/use-cases/likes/set-l
 import { SetLikeStatusForCommentUseCase } from './application/use-cases/likes/set-like-status-for-comment.use-case';
 import { UpdateCommentUseCase } from './application/use-cases/comments/update-comment.use-case';
 import { DeleteCommentUseCase } from './application/use-cases/comments/delete-comment.use-case';
-import { BlogsSqlRepository } from './infrastructure/blogs.sql-repository';
+import { BlogsRepository } from './infrastructure/blogs.repository';
 import { BlogsController } from './api/blogs/blogs.controller';
 import { PostsController } from './api/posts/posts.controller';
 import { LikesPostRepository } from './infrastructure/likes-post.repository';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BlogEntity } from './domain/blog-entity';
+import { PostEntity } from './domain/post-entity';
+import { LikeForPostEntity } from './domain/like-for-post.entity';
+import { CommentEntity } from './domain/comment-entity';
+import { LikeForCommentEntity } from './domain/like-for-comment.entity';
 
 const useCases = [
   CreateBlogUseCase,
@@ -41,7 +47,18 @@ const useCases = [
 ];
 
 @Module({
-  imports: [UserAccountsModule, CqrsModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      BlogEntity,
+      PostEntity,
+      LikeForPostEntity,
+      CommentEntity,
+      LikeForPostEntity,
+      LikeForCommentEntity,
+    ]),
+    UserAccountsModule,
+    CqrsModule,
+  ],
   controllers: [
     SaBlogsController,
     BlogsController,
@@ -52,9 +69,9 @@ const useCases = [
   providers: [
     LikesCommentRepository,
     LikesPostRepository,
-    BlogsSqlRepository,
+    BlogsRepository,
     BlogsQueryRepository,
-    PostsSqlRepository,
+    PostsRepository,
     CommentRepository,
     PostsQueryRepository,
     CommentsQueryRepository,

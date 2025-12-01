@@ -1,6 +1,6 @@
 import { CommandHandler } from '@nestjs/cqrs';
 import { randomUUID } from 'crypto';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
 import { EmailService } from '../../../notifications/email.service';
 import { UsersConfig } from '../../config/users.config';
 
@@ -11,7 +11,7 @@ export class PasswordRecoveryCommand {
 @CommandHandler(PasswordRecoveryCommand)
 export class PasswordRecoveryUseCase {
   constructor(
-    private readonly usersRepository: UsersSqlRepository,
+    private readonly usersRepository: UsersRepository,
     private readonly emailService: EmailService,
     private readonly usersConfig: UsersConfig,
   ) {}
@@ -26,7 +26,7 @@ export class PasswordRecoveryUseCase {
     const expiration = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     user.passwordRecoveryCode = code;
-    user.passwordRecoveryExpiration = expiration;
+    user.passwordRecoveryCodeExpiration = expiration;
     console.log('password recovery code: ', code);
 
     await this.usersRepository.save(user);

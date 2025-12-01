@@ -3,7 +3,7 @@ import { RegistrationInputDto } from '../../api/input-dto/registration.input-dto
 import { ValidationException } from '../../../../core/domain/domain.exception';
 import { Extension } from '../../../../core/exceptions/domain-exceptions';
 import { randomUUID } from 'crypto';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
 import { CryptoService } from '../crypto-service';
 import { UsersConfig } from '../../config/users.config';
 import { EmailService } from '../../../notifications/email.service';
@@ -19,7 +19,7 @@ export class RegistrationCommand {
 @CommandHandler(RegistrationCommand)
 export class RegistrationUseCase {
   constructor(
-    private readonly usersRepository: UsersSqlRepository,
+    private readonly usersRepository: UsersRepository,
     private readonly cryptoService: CryptoService,
     private readonly usersConfig: UsersConfig,
     private readonly emailService: EmailService,
@@ -49,7 +49,7 @@ export class RegistrationUseCase {
     const confirmCode = randomUUID();
     const expirationCode = new Date(Date.now() + 600000);
 
-    const newUser = new UserEntity({
+    const newUser = this.usersRepository.create({
       login: command.dto.login,
       email: command.dto.email,
       passwordHash,

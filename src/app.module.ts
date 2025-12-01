@@ -25,6 +25,8 @@ function getModuleImports(): any[] {
         database: coreConfig.postresDatabase,
         autoLoadEntities: true,
         synchronize: false,
+        logging: true,
+        maxQueryExecutionTime: 1000,
       }),
       inject: [CoreConfig],
     }),

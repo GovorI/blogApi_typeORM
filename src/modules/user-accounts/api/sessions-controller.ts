@@ -6,10 +6,7 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ExtractUserWithDevice,
-  UserWithDeviceContext,
-} from '../guards/decorators/extract-user-with-device.decorator';
+import { ExtractUserWithDevice } from '../guards/decorators/extract-user-with-device.decorator';
 import { HybridSessionAuthGuard } from '../guards/bearer/hybrid-session-auth.guard';
 import { SessionService } from '../application/session-service';
 import { SessionViewDto } from './view-dto/session.view-dto';
@@ -19,11 +16,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { SessionsSqlQueryRepository } from '../infrastructure/sessions.sql-query-repository';
-import { UserContextDto } from '../guards/dto/user-context.dto';
-import { ExtractUserFromRequest } from '../guards/decorators/extract-user-from-request';
+import { SessionsQueryRepository } from '../infrastructure/sessions.query-repository';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
-import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
+import { UserWithDeviceContextDto } from '../guards/dto/user-context.dto';
 
 @ApiTags('security')
 @Controller('security')
@@ -31,7 +26,7 @@ import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-c
 export class SessionController {
   constructor(
     private readonly sessionService: SessionService,
-    protected readonly sessionsSqlQueryRepository: SessionsSqlQueryRepository,
+    protected readonly sessionsSqlQueryRepository: SessionsQueryRepository,
   ) {}
 
   @Get('devices')
@@ -48,7 +43,7 @@ export class SessionController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getActiveSessions(
-    @ExtractUserWithDevice() user: UserWithDeviceContext,
+    @ExtractUserWithDevice() user: UserWithDeviceContextDto,
   ): Promise<SessionViewDto[] | null> {
     return this.sessionsSqlQueryRepository.getAllSessions(user.id);
   }
@@ -67,7 +62,7 @@ export class SessionController {
   @ApiResponse({ status: 404, description: 'Session not found' })
   async deleteSession(
     @Param('deviceId') deviceId: string,
-    @ExtractUserWithDevice() user: UserWithDeviceContext,
+    @ExtractUserWithDevice() user: UserWithDeviceContextDto,
   ): Promise<void> {
     console.log('🔍 SessionsController deleteSession called:', {
       userId: user.id,
@@ -76,14 +71,7 @@ export class SessionController {
     });
 
     try {
-      // Forbid deleting current session
-      if (user.deviceId === deviceId) {
-        throw new DomainException({
-          code: DomainExceptionCode.Forbidden,
-          message: 'Cannot delete current session',
-        });
-      }
-      await this.sessionService.deleteSession(user.id, deviceId);
+      await this.sessionService.deleteSession(user, deviceId);
       console.log('✅ SessionsController deleteSession completed successfully');
     } catch (error) {
       // Если это DomainException (404, 403), пробрасываем как есть
@@ -110,7 +98,7 @@ export class SessionController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async deleteAllOtherSessions(
-    @ExtractUserWithDevice() user: UserWithDeviceContext,
+    @ExtractUserWithDevice() user: UserWithDeviceContextDto,
   ): Promise<void> {
     console.log('🔍 SessionsController deleteAllOtherSessions called:', {
       userId: user.id,
@@ -131,7 +119,10 @@ export class SessionController {
         throw error;
       }
       // SQL ошибки и другие пробрасываем дальше
-      console.error('💥 SessionsController deleteAllOtherSessions SQL error:', error);
+      console.error(
+        '💥 SessionsController deleteAllOtherSessions SQL error:',
+        error,
+      );
       throw error;
     }
   }

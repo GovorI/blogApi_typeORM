@@ -2,6 +2,7 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { LikeStatusInputDto } from '../../../api/input-dto/like-status.input-dto';
 import { LikesCommentRepository } from '../../../infrastructure/likes-comment.repository';
 import { CommentRepository } from '../../../infrastructure/comment.repository';
+import { LikeStatuses } from '../../../dto/like-status.dto';
 import { LikeForCommentEntity } from '../../../domain/like-for-comment.entity';
 
 export class SetLikeStatusForCommentCommand {
@@ -27,14 +28,14 @@ export class SetLikeStatusForCommentUseCase
 
     await this.commentRepository.findByIdOrNotFoundFail(commentId);
     try {
-      const existingLike =
+      const existingLike: LikeForCommentEntity =
         await this.likesRepository.getLikeByCommentIdAndUserIdOrNotFoundFail(
           commentId,
           userId,
         );
 
       if (existingLike) {
-        if (likeStatus === 'None') {
+        if (likeStatus === LikeStatuses.None) {
           await this.likesRepository.deleteByCommentIdAndUserId(
             existingLike.commentId,
             existingLike.userId,
@@ -44,9 +45,9 @@ export class SetLikeStatusForCommentUseCase
           await this.likesRepository.save(existingLike);
         }
       }
-    } catch (error) {
-      if (likeStatus !== 'None') {
-        const newLikeStatus = new LikeForCommentEntity({
+    } catch {
+      if (likeStatus !== LikeStatuses.None) {
+        const newLikeStatus = this.likesRepository.create({
           userId: command.userId,
           commentId: command.commentId,
           status: command.likeStatusDto.likeStatus,

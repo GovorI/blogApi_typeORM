@@ -1,8 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtService } from '../../application/jwt-service';
-import { UsersSqlRepository } from '../../infrastructure/users.sql-repository';
-import { SessionsSqlRepository } from '../../infrastructure/sessions.sql-repository';
+import { UsersRepository } from '../../infrastructure/users.repository';
+import { SessionsRepository } from '../../infrastructure/sessions.repository';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 
@@ -10,8 +10,8 @@ import { DomainExceptionCode } from '../../../../core/exceptions/domain-exceptio
 export class HybridSessionAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly usersRepository: UsersSqlRepository,
-    private readonly sessionsRepository: SessionsSqlRepository,
+    private readonly usersRepository: UsersRepository,
+    private readonly sessionsRepository: SessionsRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

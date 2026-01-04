@@ -5,6 +5,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('CommentsController (e2e)', () => {
   let app: INestApplication;
@@ -22,14 +24,9 @@ describe('CommentsController (e2e)', () => {
 
     // Настраиваем приложение
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
-    // Очищаем базу данных перед тестами
-    await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Comments" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "commentLikes" CASCADE;`);
+    await clearDb(app);
 
     // Создаем тестового пользователя
     const userResponse = await request(app.getHttpServer())

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { UserNotFoundException } from '../../../core/domain';
-import { UserEntity } from '../domain/user-entity';
+import { UserEntity } from '../domain/user.entity';
 
 // Интерфейс для сырых данных из PostgreSQL
 // validRefreshTokens и deviceToTokenMapping хранятся как JSON в БД

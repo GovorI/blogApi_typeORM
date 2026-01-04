@@ -4,10 +4,12 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 /**
  * E2E тесты для модуля постов (Posts)
- * 
+ *
  * Этот файл содержит комплексные end-to-end тесты для проверки функциональности постов.
  * Тесты покрывают:
  * - CRUD операции для постов через SA API (Super Admin)
@@ -16,7 +18,7 @@ import { appSetup } from '../src/setup/app.setup';
  * - Систему лайков/дизлайков
  * - Валидацию входных данных
  * - Обработку ошибок (404, 400, 401)
- * 
+ *
  * Архитектурный подход:
  * - Используется паттерн AAA (Arrange-Act-Assert)
  * - Каждый тест изолирован и очищает базу данных перед выполнением
@@ -25,10 +27,10 @@ import { appSetup } from '../src/setup/app.setup';
 describe('Posts (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  
+
   // Учетные данные для базовой авторизации (Super Admin)
   const adminCredentials = { username: 'admin', password: 'qwerty' };
-  
+
   // Переменные для хранения созданных сущностей
   let createdBlogId: string;
   let createdPostId: string;
@@ -51,13 +53,11 @@ describe('Posts (e2e)', () => {
 
     // Применяем настройки приложения (pipes, guards, interceptors и т.д.)
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
     // Очищаем все таблицы перед запуском тестов
     // CASCADE удаляет связанные записи в зависимых таблицах
-    await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
+    await clearDb(app);
   });
 
   /**
@@ -137,9 +137,8 @@ describe('Posts (e2e)', () => {
      */
     beforeEach(async () => {
       // Очищаем таблицы для изоляции тестов
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-      
+      await clearDb(app);
+
       // Создаем тестовый блог, так как посты привязаны к блогам
       const blog = await createTestBlog('Test Blog', 'Test Description');
       createdBlogId = blog.id;
@@ -175,13 +174,13 @@ describe('Posts (e2e)', () => {
       expect(response.body).toHaveProperty('blogName');
       expect(response.body).toHaveProperty('createdAt');
       expect(response.body).toHaveProperty('extendedLikesInfo');
-      
+
       // Проверяем структуру extendedLikesInfo
       expect(response.body.extendedLikesInfo).toHaveProperty('likesCount');
       expect(response.body.extendedLikesInfo).toHaveProperty('dislikesCount');
       expect(response.body.extendedLikesInfo).toHaveProperty('myStatus');
       expect(response.body.extendedLikesInfo).toHaveProperty('newestLikes');
-      
+
       // Сохраняем ID для использования в других тестах
       createdPostId = response.body.id;
     });
@@ -268,7 +267,9 @@ describe('Posts (e2e)', () => {
         .expect(200);
 
       expect(getResponse.body.title).toBe(updatedData.title);
-      expect(getResponse.body.shortDescription).toBe(updatedData.shortDescription);
+      expect(getResponse.body.shortDescription).toBe(
+        updatedData.shortDescription,
+      );
       expect(getResponse.body.content).toBe(updatedData.content);
     });
 
@@ -357,11 +358,14 @@ describe('Posts (e2e)', () => {
    * Группа тестов для публичного API постов
    * Публичный API доступен без авторизации для чтения
    */
-  describe('Public API: Получение постов', () => {
+  describe('SA API: Управление постами', () => {
+    beforeAll(async () => {
+      await clearDb(app);
+    });
+
     beforeEach(async () => {
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-      
+      await clearDb(app);
+
       const blog = await createTestBlog('Public Blog', 'Public Description');
       createdBlogId = blog.id;
     });
@@ -448,9 +452,8 @@ describe('Posts (e2e)', () => {
    */
   describe('Public API: Создание постов', () => {
     beforeEach(async () => {
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-      
+      await clearDb(app);
+
       const blog = await createTestBlog('Test Blog', 'Test Description');
       createdBlogId = blog.id;
     });
@@ -505,10 +508,7 @@ describe('Posts (e2e)', () => {
   describe('Комментарии к постам', () => {
     beforeEach(async () => {
       // Очищаем все связанные таблицы
-      await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Comments" CASCADE;`);
+      await clearDb(app);
 
       // Создаем пользователя для тестов с комментариями
       const user = await createTestUser(
@@ -661,10 +661,7 @@ describe('Posts (e2e)', () => {
    */
   describe('Лайки и дизлайки постов', () => {
     beforeEach(async () => {
-      await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "PostLikes" CASCADE;`);
+      await clearDb(app);
 
       // Создаем пользователя
       const user = await createTestUser(
@@ -853,7 +850,7 @@ describe('Posts (e2e)', () => {
       // Assert: проверяем newestLikes
       expect(response.body.extendedLikesInfo.likesCount).toBe(4);
       expect(response.body.extendedLikesInfo.newestLikes).toHaveLength(3); // Показываем только 3 последних
-      
+
       // Проверяем структуру каждого элемента в newestLikes
       response.body.extendedLikesInfo.newestLikes.forEach((like: any) => {
         expect(like).toHaveProperty('addedAt');
@@ -863,35 +860,34 @@ describe('Posts (e2e)', () => {
     });
   });
 
-  /**
-   * Группа тестов для проверки пагинации и сортировки
-   */
-  describe('Пагинация и сортировка постов', () => {
-    beforeEach(async () => {
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
+      /**
+       * Группа тестов для проверки пагинации и сортировки
+       */
+      describe('Пагинация и сортировка постов', () => {
+        beforeEach(async () => {
+          await clearDb(app);
 
-      const blog = await createTestBlog('Pagination Blog', 'Description');
-      createdBlogId = blog.id;
+          const blog = await createTestBlog('Pagination Blog', 'Description');
+          createdBlogId = blog.id;
 
-      // Создаем 10 постов для тестирования пагинации
-      for (let i = 0; i < 10; i++) {
-        await request(app.getHttpServer())
-          .post(`/api/sa/blogs/${createdBlogId}/posts`)
-          .auth(adminCredentials.username, adminCredentials.password, {
-            type: 'basic',
-          })
-          .send({
-            title: `Post ${i}`,
-            shortDescription: `Description ${i}`,
-            content: `Content ${i}`,
-          })
-          .expect(201);
-        
-        // Задержка для различия времени создания
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-    });
+          // Создаем 10 постов для тестирования пагинации
+          for (let i = 0; i < 10; i++) {
+            await request(app.getHttpServer())
+              .post(`/api/sa/blogs/${createdBlogId}/posts`)
+              .auth(adminCredentials.username, adminCredentials.password, {
+                type: 'basic',
+              })
+              .send({
+                title: `Post ${i}`,
+                shortDescription: `Description ${i}`,
+                content: `Content ${i}`,
+              })
+              .expect(201);
+
+            // Задержка для различия времени создания
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        });
 
     /**
      * Тест пагинации: первая страница
@@ -933,10 +929,10 @@ describe('Posts (e2e)', () => {
         .expect(200);
 
       // Проверяем, что посты отсортированы от новых к старым
-      const dates = response.body.items.map((post: any) => 
-        new Date(post.createdAt).getTime()
+      const dates = response.body.items.map((post: any) =>
+        new Date(post.createdAt).getTime(),
       );
-      
+
       for (let i = 0; i < dates.length - 1; i++) {
         expect(dates[i]).toBeGreaterThanOrEqual(dates[i + 1]);
       }

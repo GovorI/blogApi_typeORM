@@ -3,6 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Refresh Token Tests (e2e)', () => {
   let app: INestApplication;
@@ -14,7 +16,7 @@ describe('Refresh Token Tests (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
   });
 
   afterAll(async () => {
@@ -23,9 +25,7 @@ describe('Refresh Token Tests (e2e)', () => {
 
   beforeEach(async () => {
     // Clean all data before each test
-    await request(app.getHttpServer())
-      .delete('/api/testing/all-data')
-      .expect(204);
+    await clearDb(app);
   });
 
   describe('POST /auth/logout', () => {

@@ -11,7 +11,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BlogsRepository } from './blogs.repository';
 import { LikeStatuses } from '../dto/like-status.dto';
-import { NewestLikeInfo, PostEntity } from '../domain/post-entity';
+import { NewestLikeInfo, PostEntity } from '../domain/post.entity';
 
 interface RawPostQueryResult {
   id: string;

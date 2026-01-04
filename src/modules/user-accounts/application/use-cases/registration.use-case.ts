@@ -7,7 +7,7 @@ import { UsersRepository } from '../../infrastructure/users.repository';
 import { CryptoService } from '../crypto-service';
 import { UsersConfig } from '../../config/users.config';
 import { EmailService } from '../../../notifications/email.service';
-import { UserEntity } from '../../domain/user-entity';
+import { UserEntity } from '../../domain/user.entity';
 
 export class RegistrationCommand {
   constructor(

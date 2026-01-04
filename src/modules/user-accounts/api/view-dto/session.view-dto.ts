@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 // import { ISqlSession } from '../../infrastructure/sessions.repository';
-import { SessionEntity } from '../../domain/session-entity';
+import { SessionEntity } from '../../domain/session.entity';
 
 export class SessionViewDto {
   @ApiProperty({

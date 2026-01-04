@@ -9,7 +9,7 @@ import { SortDirection } from '../../../core/dto/base.query-params.input-dto';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 import { PostsRepository } from './posts.repository';
-import { CommentEntity } from '../domain/comment-entity';
+import { CommentEntity } from '../domain/comment.entity';
 
 export interface RawSqlComment {
   id: string;

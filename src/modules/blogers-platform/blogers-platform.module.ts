@@ -26,10 +26,10 @@ import { BlogsController } from './api/blogs/blogs.controller';
 import { PostsController } from './api/posts/posts.controller';
 import { LikesPostRepository } from './infrastructure/likes-post.repository';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BlogEntity } from './domain/blog-entity';
-import { PostEntity } from './domain/post-entity';
+import { BlogEntity } from './domain/blog.entity';
+import { PostEntity } from './domain/post.entity';
 import { LikeForPostEntity } from './domain/like-for-post.entity';
-import { CommentEntity } from './domain/comment-entity';
+import { CommentEntity } from './domain/comment.entity';
 import { LikeForCommentEntity } from './domain/like-for-comment.entity';
 
 const useCases = [

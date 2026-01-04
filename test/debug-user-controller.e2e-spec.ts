@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
 
 describe('UserController (e2e) - Debug', () => {
   let app: INestApplication;
@@ -14,7 +15,7 @@ describe('UserController (e2e) - Debug', () => {
 
     app = moduleFixture.createNestApplication();
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
     // Очищаем базу данных перед запуском всех тестов
     try {

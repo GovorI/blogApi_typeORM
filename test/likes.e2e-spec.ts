@@ -5,12 +5,11 @@ import { AppModule } from '../src/app.module';
 import { TestingController } from '../src/modules/testing/testing.controller';
 import { appSetup } from '../src/setup/app.setup';
 import { PostViewDto } from '../src/modules/blogers-platform/api/view-dto/post.view-dto';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Posts Likes (e2e)', () => {
   let app: INestApplication;
-  let authToken: string;
-  let createdBlogId: string;
-  let createdPostId: string;
 
   beforeAll(async () => {
     // Set environment variables for testing
@@ -23,15 +22,13 @@ describe('Posts Likes (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
     const testingController = app.get(TestingController);
     console.log('TestingController loaded:', !!testingController);
 
     // Clear database
-    await request(app.getHttpServer())
-      .delete('/api/testing/all-data')
-      .expect(204);
+    await clearDb(app);
   });
 
   afterAll(async () => {

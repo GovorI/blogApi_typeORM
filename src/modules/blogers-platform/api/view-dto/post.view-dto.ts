@@ -1,4 +1,4 @@
-import { NewestLikeInfo } from '../../domain/post-entity';
+import { NewestLikeInfo } from '../../domain/post.entity';
 import { LikeStatuses } from '../../dto/like-status.dto';
 
 /**

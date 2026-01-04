@@ -9,7 +9,7 @@ import {
 } from '../api/blogs/get-blogs-query-params.input-dto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { BlogEntity } from '../domain/blog-entity';
+import { BlogEntity } from '../domain/blog.entity';
 
 @Injectable()
 export class BlogsQueryRepository {

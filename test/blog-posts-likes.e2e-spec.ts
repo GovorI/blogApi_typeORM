@@ -4,6 +4,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Blog Posts Likes (e2e)', () => {
   let app: INestApplication;
@@ -21,13 +23,9 @@ describe('Blog Posts Likes (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
-    // Clear database
-    await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "postLikes" CASCADE;`);
+    await clearDb(app);
 
     // Create test users (4 users)
     for (let i = 1; i <= 4; i++) {

@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -14,7 +15,7 @@ describe('Auth (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
   });
 
   afterAll(async () => {

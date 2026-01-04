@@ -1,7 +1,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { Not, Repository } from 'typeorm';
-import { SessionEntity } from '../domain/session-entity';
+import { SessionEntity } from '../domain/session.entity';
 
 export class SessionsRepository {
   constructor(

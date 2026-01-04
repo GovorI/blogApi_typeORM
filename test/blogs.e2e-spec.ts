@@ -2,14 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { DataSource } from 'typeorm';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Blogs (e2e)', () => {
   let app: INestApplication;
-  let dataSource: DataSource;
   const adminCredentials = { username: 'admin', password: 'qwerty' };
-  let authToken: string;
   let createdBlogId: string;
 
   beforeAll(async () => {
@@ -18,36 +17,19 @@ describe('Blogs (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    dataSource = moduleFixture.get<DataSource>(DataSource);
 
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
-    // Очистка базы данных перед запуском всех тестов
-    await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-
-    // Создаем пользователя и получаем токен для авторизации если нужно
-    try {
-      const loginResponse = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({
-          loginOrEmail: 'user1',
-          password: 'password123',
-        });
-
-      if (loginResponse.status === 200) {
-        authToken = loginResponse.body.accessToken;
-      }
-    } catch (error) {
-      // Если логин не удался, продолжаем без токена
-      console.log(
-        'Ошибка авторизации, тесты продолжатся с базовой авторизацией',
-      );
-    }
+    await clearDb(app);
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(async () => {
+    await clearDb(app);
   });
 
   describe('Управление блогами через SA API', () => {
@@ -64,9 +46,6 @@ describe('Blogs (e2e)', () => {
     };
 
     it('SA: должен создать новый блог', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
       const response = await request(app.getHttpServer())
         .post('/api/sa/blogs')
         .auth(adminCredentials.username, adminCredentials.password, {
@@ -86,9 +65,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: должен получить все блоги с пагинацией', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-
       // Создаем несколько блогов для теста пагинации
       for (let i = 0; i < 3; i++) {
         await request(app.getHttpServer())
@@ -126,10 +102,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: должен получить блог по ID', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Сначала создаем блог для этого теста
       const createResponse = await request(app.getHttpServer())
         .post('/api/sa/blogs')
@@ -153,10 +125,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: должен обновить блог по ID', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Сначала создаем блог для этого теста
       const createResponse = await request(app.getHttpServer())
         .post('/api/sa/blogs')
@@ -187,10 +155,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: не должен обновить несуществующий блог', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Используем заведомо некорректный UUID
       const nonExistentId = '00000000-0000-0000-0000-000000000000';
       const response = await request(app.getHttpServer())
@@ -206,10 +170,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: не должен создать блог с невалидными данными', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       const invalidBlog = {
         name: 'Blog name that is way too long and exceeds the maximum length limit',
         description: '', // Пустое описание
@@ -230,9 +190,6 @@ describe('Blogs (e2e)', () => {
 
   describe('Публичный API для блогов', () => {
     it('Должен получить список блогов', async () => {
-      // Очищаем базу и создаем тестовые данные
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-
       // Создаем несколько блогов
       for (let i = 0; i < 2; i++) {
         await request(app.getHttpServer())
@@ -266,9 +223,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('Должен получить конкретный блог по ID', async () => {
-      // Очищаем базу и создаем тестовый блог
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-
       const testBlog = {
         name: 'Test Blog ID',
         description: 'This is a test blog for ID testing',
@@ -310,40 +264,22 @@ describe('Blogs (e2e)', () => {
     });
 
     it('Должен работать фильтр поиска блога по имени', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Создаем блог с уникальным именем для поиска
-      // Используем только последние 4 цифры timestamp для уникальности
-      const uniqueName = 'Search' + (Date.now() % 10000);
-      const uniqueBlog = {
-        name: uniqueName,
-        description: 'Blog for search testing',
-        websiteUrl: 'https://search-test.com',
-      };
-
-      console.log('Creating blog with unique name:', uniqueName);
-
-      const createResponse = await request(app.getHttpServer())
+      const uniqueBlogName = `U${Date.now().toString().slice(-10)}`;
+      await request(app.getHttpServer())
         .post('/api/sa/blogs')
         .auth(adminCredentials.username, adminCredentials.password, {
           type: 'basic',
         })
-        .send(uniqueBlog);
+        .send({
+          name: uniqueBlogName,
+          description: 'Blog for search testing',
+          websiteUrl: 'https://search-test.com',
+        })
+        .expect(201);
 
-      console.log('Create blog response status:', createResponse.status);
-
-      expect(createResponse.status).toBe(201);
-      expect(createResponse.body.name).toBe(uniqueName);
-
-      // Значительная задержка, чтобы убедиться, что данные сохранились в БД
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Ищем блог по имени
-      console.log('Searching for blog with name:', uniqueName);
       const searchResponse = await request(app.getHttpServer()).get(
-        `/api/blogs?searchNameTerm=${uniqueName}`,
+        `/api/blogs?searchNameTerm=${uniqueBlogName}`,
       );
 
       console.log('Search response status:', searchResponse.status);
@@ -354,27 +290,20 @@ describe('Blogs (e2e)', () => {
 
       // Проверяем, что хотя бы один блог в ответе содержит наше имя
       const foundBlog = searchResponse.body.items.find(
-        (blog: any) => blog.name === uniqueName,
+        (blog: any) => blog.name === uniqueBlogName,
       );
       expect(foundBlog).toBeDefined();
     });
 
     it('Должен корректно работать пагинация', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Создаем несколько блогов для теста пагинации
       const blogsToCreate = 5;
       const createdBlogIds: string[] = [];
 
-      console.log(`Creating ${blogsToCreate} test blogs for pagination`);
-
-      // Создаем блоги в цикле с задержкой
+      // Создаем несколько блогов для теста пагинации
       for (let i = 0; i < blogsToCreate; i++) {
         const blog = {
-          name: `Pagination ${i}`,
-          description: `Pagination test blog ${i}`,
+          name: `P${i}${Date.now().toString().slice(-6)}`,
+          description: `Pagination Description ${i}`,
           websiteUrl: `https://pagination-${i}.com`,
         };
 
@@ -466,9 +395,6 @@ describe('Blogs (e2e)', () => {
 
   describe('Удаление блога', () => {
     it('SA: должен удалить блог', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
       // Создаем блог для удаления
       const blogToDelete = {
         name: 'Blog to Delete',
@@ -501,10 +427,6 @@ describe('Blogs (e2e)', () => {
     });
 
     it('SA: не должен удалять несуществующий блог', async () => {
-      // Очищаем базу перед тестом
-      await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Используем заведомо некорректный UUID
       const nonExistentId = '00000000-0000-0000-0000-000000000000';
       const response = await request(app.getHttpServer())

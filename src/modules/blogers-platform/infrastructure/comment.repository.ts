@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CommentEntity } from '../domain/comment-entity';
+import { CommentEntity } from '../domain/comment.entity';
 import { CommentNotFoundException } from '../../../core/domain/domain.exception';
 import { IsNull, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';

@@ -3,6 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Sessions (e2e)', () => {
   let app: INestApplication;
@@ -10,7 +12,8 @@ describe('Sessions (e2e)', () => {
   let cookies: string[];
   let refreshToken: string;
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -19,7 +22,7 @@ describe('Sessions (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
   });
 
   afterAll(async () => {
@@ -28,9 +31,7 @@ describe('Sessions (e2e)', () => {
 
   beforeEach(async () => {
     // Clean all data before each test
-    await request(app.getHttpServer())
-      .delete('/api/testing/all-data')
-      .expect(204);
+    await clearDb(app);
 
     // Register and login user
     await request(app.getHttpServer())
@@ -215,8 +216,9 @@ describe('Sessions (e2e)', () => {
     });
 
     it('should return 404 if device ID not found', async () => {
+      const nonExistentDeviceId = '00000000-0000-0000-0000-000000000000';
       await request(app.getHttpServer())
-        .delete('/api/security/devices/non-existent-device-id')
+        .delete(`/api/security/devices/${nonExistentDeviceId}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(404);
     });
@@ -243,7 +245,6 @@ describe('Sessions (e2e)', () => {
         .expect(403);
     });
 
-    sleep(500)
     it('should return 401 with incorrect auth credentials', async () => {
       await request(app.getHttpServer())
         .delete(`/api/security/devices/${otherDeviceId}`)
@@ -251,7 +252,6 @@ describe('Sessions (e2e)', () => {
         .expect(401);
     });
 
-    sleep(500)
     it('should return 403 when trying to delete session from different user', async () => {
       // Create another user
       await sleep(300);

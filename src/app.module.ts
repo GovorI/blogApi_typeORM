@@ -11,6 +11,7 @@ import { JwtAuthModule } from './modules/jwt/jwt.module';
 import { BlogersPlatformModule } from './modules/blogers-platform/blogers-platform.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { configValidationUtility } from './core/utils/config-validation.utility';
+import { QuizGameModule } from './modules/quiz-game/quiz-game.module';
 
 // Dynamic module imports based on environment
 function getModuleImports(): any[] {
@@ -34,6 +35,7 @@ function getModuleImports(): any[] {
     BlogersPlatformModule,
     NotificationsModule,
     JwtAuthModule,
+    QuizGameModule,
     configModule,
     CoreModule,
   ];

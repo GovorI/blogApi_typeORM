@@ -7,7 +7,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { UserEntity } from './user-entity';
+import { UserEntity } from './user.entity';
 
 @Entity('Sessions')
 export class SessionEntity {

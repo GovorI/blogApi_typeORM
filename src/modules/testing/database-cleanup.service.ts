@@ -14,8 +14,6 @@ export class DatabaseCleanupService {
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
       // Get all table names from the database
       const tables = await queryRunner.query(`
@@ -25,14 +23,20 @@ export class DatabaseCleanupService {
         AND table_type = 'BASE TABLE'
       `);
 
-      // Truncate all tables (faster than DELETE, resets auto-increment)
-      for (const table of tables) {
-        await queryRunner.query(`TRUNCATE TABLE "${table.table_name}" CASCADE`);
+      const tableNames = (tables as Array<{ table_name: string }>).map(
+        (t) => t.table_name,
+      );
+
+      const filtered = tableNames.filter(
+        (name) => name !== 'migrations' && name !== 'typeorm_metadata',
+      );
+
+      if (filtered.length > 0) {
+        const quotedList = filtered.map((n) => `"${n}"`).join(', ');
+        // Один TRUNCATE на все таблицы существенно быстрее, чем цикл запросов
+        await queryRunner.query(`TRUNCATE TABLE ${quotedList} CASCADE;`);
       }
-      await queryRunner.commitTransaction();
-      console.log('✅ PostgreSQL tables cleared');
     } catch (error) {
-      await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();

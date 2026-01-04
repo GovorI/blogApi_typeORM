@@ -5,6 +5,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { appSetup } from '../src/setup/app.setup';
+import { initAppAndListen } from './helpers/e2e-app';
+import { clearDb } from './helpers/e2e-db';
 
 describe('Post Comments Not Found Test (e2e)', () => {
   let app: INestApplication;
@@ -20,14 +22,9 @@ describe('Post Comments Not Found Test (e2e)', () => {
 
     // Setup the application
     appSetup(app);
-    await app.init();
+    await initAppAndListen(app);
 
-    // Clear database tables
-    await dataSource.query(`TRUNCATE TABLE "Users" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Blogs" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Posts" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "Comments" CASCADE;`);
-    await dataSource.query(`TRUNCATE TABLE "commentLikes" CASCADE;`);
+    await clearDb(app);
   }, 30000); // Increase timeout for setup
 
   afterAll(async () => {

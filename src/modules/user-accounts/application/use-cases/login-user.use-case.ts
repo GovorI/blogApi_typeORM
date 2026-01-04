@@ -3,7 +3,7 @@ import { CommandHandler } from '@nestjs/cqrs';
 import { JwtService } from '../jwt-service';
 import { JwtConfig } from '../../../jwt/jwt.config';
 import { SessionsRepository } from '../../infrastructure/sessions.repository';
-import { SessionEntity } from '../../domain/session-entity';
+import { SessionEntity } from '../../domain/session.entity';
 
 export class LoginUserCommand {
   constructor(

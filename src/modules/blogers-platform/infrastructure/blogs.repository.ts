@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BlogEntity } from '../domain/blog-entity';
+import { BlogEntity } from '../domain/blog.entity';
 import { BlogNotFoundException } from '../../../core/domain';
 import { IsNull } from 'typeorm';
 

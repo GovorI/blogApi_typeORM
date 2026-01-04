@@ -3,7 +3,7 @@ import {
   BadRequestException,
   UserNotFoundException,
 } from '../../../core/domain/domain.exception';
-import { UserEntity } from '../domain/user-entity';
+import { UserEntity } from '../domain/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { CryptoService } from './crypto-service';
 import { UsersRepository } from '../infrastructure/users.repository';

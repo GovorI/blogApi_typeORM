@@ -46,7 +46,7 @@ export function pipesSetup(app: INestApplication) {
       whitelist: false, // Don't strip properties to allow default values
       forbidNonWhitelisted: false, // Don't throw error for unknown properties
       transformOptions: {
-        enableImplicitConversion: true,
+        enableImplicitConversion: false,
       },
       exceptionFactory: (errors) => {
         const formattedErrors = errorFormatter(errors);

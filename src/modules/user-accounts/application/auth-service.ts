@@ -6,7 +6,7 @@ import { TooManyRequestsException } from '../../../core/domain/domain.exception'
 import { RateLimiterService } from '../../../core/services/rate-limiter.service';
 import { UsersConfig } from '../config/users.config';
 import { RateLimiterConfig } from '../config/rate-limiter.config';
-import { UserEntity } from '../domain/user-entity';
+import { UserEntity } from '../domain/user.entity';
 
 @Injectable()
 export class AuthService {

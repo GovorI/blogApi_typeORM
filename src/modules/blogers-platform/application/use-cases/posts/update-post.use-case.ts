@@ -2,7 +2,7 @@ import { UpdatePostInputDto } from '../../../api/input-dto/post.input.dto';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PostsRepository } from '../../../infrastructure/posts.repository';
 import { BlogsRepository } from '../../../infrastructure/blogs.repository';
-import { PostEntity } from '../../../domain/post-entity';
+import { PostEntity } from '../../../domain/post.entity';
 import { BlogNotFoundException } from '../../../../../core/domain';
 
 export class UpdatePostCommand {

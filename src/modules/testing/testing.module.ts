@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TestingController } from './testing.controller';
-import { RateLimiterService } from '../../core/services/rate-limiter.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseCleanupService } from './database-cleanup.service';
+import { UserAccountsModule } from '../user-accounts/user-accounts.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([])],
+  imports: [TypeOrmModule.forFeature([]), UserAccountsModule],
   controllers: [TestingController],
-  providers: [RateLimiterService, DatabaseCleanupService],
+  providers: [DatabaseCleanupService],
   exports: [],
 })
 export class TestingModule {}

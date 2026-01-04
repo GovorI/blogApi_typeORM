@@ -1,4 +1,4 @@
-import { BlogEntity } from './blog-entity';
+import { BlogEntity } from './blog.entity';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 

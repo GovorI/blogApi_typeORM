@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PostEntity } from '../domain/post-entity';
+import { PostEntity } from '../domain/post.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { PostNotFoundException } from '../../../core/domain';

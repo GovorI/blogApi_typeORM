@@ -2,7 +2,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { SessionViewDto } from '../api/view-dto/session.view-dto';
 // import { ISqlSession } from './sessions.repository';
-import { SessionEntity } from '../domain/session-entity';
+import { SessionEntity } from '../domain/session.entity';
 
 export class SessionsQueryRepository {
   constructor(@InjectDataSource() protected dataSource: DataSource) {}

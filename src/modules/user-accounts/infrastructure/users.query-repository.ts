@@ -8,7 +8,7 @@ import { ISqlUser } from './users.repository';
 // import { SqlUserAdapter } from './adapters/sql-user.adapter';
 import { UserViewDto } from '../api/view-dto/user.view-dto';
 import { SortDirection } from '../../../core/dto/base.query-params.input-dto';
-import { UserEntity } from '../domain/user-entity';
+import { UserEntity } from '../domain/user.entity';
 
 @Injectable()
 export class UsersQueryRepository {

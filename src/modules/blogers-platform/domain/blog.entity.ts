@@ -1,26 +1,28 @@
+import { UpdateBlogDto } from '../dto/update-blog.dto';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { PostEntity } from './post-entity';
+import { PostEntity } from './post.entity';
 
-@Entity('Comments')
-export class CommentEntity {
+@Entity('Blogs')
+export class BlogEntity {
   @PrimaryColumn('uuid')
   id: string;
-  @Column({ type: 'varchar', length: 300 })
-  content: string;
-  @Column({ type: 'uuid' })
-  postId: string;
-  @Column({ type: 'uuid' })
-  userId: string;
+  @Column({ type: 'varchar', length: 15 })
+  name: string;
+  @Column({ type: 'varchar', length: 500 })
+  description: string;
+  @Column({ type: 'varchar', length: 100 })
+  websiteUrl: string;
+  @Column({ type: 'boolean', default: false })
+  isMembership: boolean;
   @CreateDateColumn()
   createdAt: Date;
   @UpdateDateColumn()
@@ -28,12 +30,13 @@ export class CommentEntity {
   @Column({ type: 'timestamp', nullable: true })
   deletedAt: Date | null;
 
-  @ManyToOne(() => PostEntity, (post) => post.comments)
-  @JoinColumn({ name: 'postId' })
-  post: PostEntity;
+  @OneToMany(() => PostEntity, (post) => post.blog)
+  posts: PostEntity[];
 
-  update(content: string): void {
-    this.content = content;
+  update(dto: UpdateBlogDto): void {
+    this.name = dto.name ?? this.name;
+    this.description = dto.description ?? this.description;
+    this.websiteUrl = dto.websiteUrl ?? this.websiteUrl;
   }
 
   makeDeleted(): void {

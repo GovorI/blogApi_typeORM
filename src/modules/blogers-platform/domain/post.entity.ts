@@ -8,11 +8,11 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { BlogEntity } from './blog-entity';
+import { BlogEntity } from './blog.entity';
 import { UpdatePostInputDto } from '../api/input-dto/post.input.dto';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
-import { CommentEntity } from './comment-entity';
+import { CommentEntity } from './comment.entity';
 
 export interface NewestLikeInfo {
   login: string;

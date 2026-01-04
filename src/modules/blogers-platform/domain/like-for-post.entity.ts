@@ -7,7 +7,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { PostEntity } from './post-entity';
+import { PostEntity } from './post.entity';
 import { LikeStatuses } from '../dto/like-status.dto';
 
 3;

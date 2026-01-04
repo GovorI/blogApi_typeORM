@@ -7,7 +7,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { CommentEntity } from './comment-entity';
+import { CommentEntity } from './comment.entity';
 import { LikeStatuses } from '../dto/like-status.dto';
 
 @Entity('CommentLikes')

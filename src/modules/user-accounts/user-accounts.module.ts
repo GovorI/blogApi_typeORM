@@ -5,7 +5,6 @@ import { SessionController } from './api/sessions-controller';
 import { UsersService } from './application/user-service';
 import { AuthService } from './application/auth-service';
 import { SessionService } from './application/session-service';
-// import { SessionCleanupService } from './application/session-cleanup.service';
 import { CryptoService } from './application/crypto-service';
 import { PassportModule } from '@nestjs/passport';
 import { LocalStrategy } from './guards/local/local.strategy';
@@ -38,9 +37,9 @@ import { UsersRepository } from './infrastructure/users.repository';
 import { UsersQueryRepository } from './infrastructure/users.query-repository';
 import { SessionsRepository } from './infrastructure/sessions.repository';
 import { SessionsQueryRepository } from './infrastructure/sessions.query-repository';
-import { UserEntity } from './domain/user-entity';
+import { UserEntity } from './domain/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SessionEntity } from './domain/session-entity';
+import { SessionEntity } from './domain/session.entity';
 
 const useCases = [
   LoginUserUseCase,
@@ -89,6 +88,12 @@ const useCases = [
     RateLimiterConfig,
     ...useCases,
   ],
-  exports: [AuthService, UsersService, SessionService, UsersRepository],
+  exports: [
+    AuthService,
+    UsersService,
+    SessionService,
+    UsersRepository,
+    RateLimiterService,
+  ],
 })
 export class UserAccountsModule {}

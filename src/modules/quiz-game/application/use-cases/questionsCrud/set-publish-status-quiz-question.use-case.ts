@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { QuizQuestionsRepository } from '../../infrastructure/quiz-questions.repository';
+import { QuestionsRepository } from '../../../infrastructure/questions.repository';
 
 export class SetPublishStatusQuizQuestionCommand {
   constructor(
@@ -12,7 +12,7 @@ export class SetPublishStatusQuizQuestionCommand {
 export class SetPublishStatusQuizQuestionUseCase
   implements ICommandHandler<SetPublishStatusQuizQuestionCommand>
 {
-  constructor(private readonly quizQuestionsRepository: QuizQuestionsRepository) {}
+  constructor(private readonly quizQuestionsRepository: QuestionsRepository) {}
 
   async execute(command: SetPublishStatusQuizQuestionCommand): Promise<void> {
     const entity = await this.quizQuestionsRepository.findByIdOrNotFoundFail(

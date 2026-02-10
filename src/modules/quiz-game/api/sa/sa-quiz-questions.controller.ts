@@ -25,26 +25,31 @@ import {
   PublishQuizQuestionInputDto,
   UpdateQuizQuestionInputDto,
 } from '../input-dto/quiz-question.input-dto';
-import { GetSaQuizQuestionsQueryParams } from './sa-quiz-questions.get-query-params.input-dto';
+import { GetSaQuizQuestionsQueryParams } from '../input-dto/sa-quiz-questions.get-query-params.input-dto';
 import { CommandBus } from '@nestjs/cqrs';
-import { QuizQuestionsQueryRepository } from '../../infrastructure/quiz-questions.query-repository';
-import { CreateQuizQuestionCommand } from '../../application/use-cases/create-quiz-question.use-case';
-import { DeleteQuizQuestionCommand } from '../../application/use-cases/delete-quiz-question.use-case';
-import { UpdateQuizQuestionCommand } from '../../application/use-cases/update-quiz-question.use-case';
-import { SetPublishStatusQuizQuestionCommand } from '../../application/use-cases/set-publish-status-quiz-question.use-case';
+import { QuestionsQueryRepository } from '../../infrastructure/questions.query-repository';
+import { CreateQuizQuestionCommand } from '../../application/use-cases/questionsCrud/create-quiz-question.use-case';
+import { DeleteQuizQuestionCommand } from '../../application/use-cases/questionsCrud/delete-quiz-question.use-case';
+import { UpdateQuizQuestionCommand } from '../../application/use-cases/questionsCrud/update-quiz-question.use-case';
+import { SetPublishStatusQuizQuestionCommand } from '../../application/use-cases/questionsCrud/set-publish-status-quiz-question.use-case';
 
 @ApiTags('QuizQuestions')
 @Controller('sa/quiz/questions')
 export class SaQuizQuestionsController {
   constructor(
-    private readonly quizQuestionsQueryRepository: QuizQuestionsQueryRepository,
+    private readonly quizQuestionsQueryRepository: QuestionsQueryRepository,
     private readonly commandBus: CommandBus,
   ) {}
 
   @Get()
   @UseGuards(BasicAuthGuard)
-  @ApiOperation({ summary: 'Returns all questions with pagination and filtering' })
-  @ApiResponse({ status: 200, description: 'List of questions with pagination' })
+  @ApiOperation({
+    summary: 'Returns all questions with pagination and filtering',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of questions with pagination',
+  })
   async getAll(
     @Query() query: GetSaQuizQuestionsQueryParams,
   ): Promise<PaginatedViewDto<QuizQuestionViewDto[]>> {
@@ -97,7 +102,10 @@ export class SaQuizQuestionsController {
   @ApiOperation({ summary: 'Publish/unpublish question' })
   @ApiParam({ name: 'id', description: 'Question ID' })
   @ApiBody({ type: PublishQuizQuestionInputDto })
-  @ApiResponse({ status: 204, description: 'Publish status updated successfully' })
+  @ApiResponse({
+    status: 204,
+    description: 'Publish status updated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Question not found' })
   async publish(
     @Param('id') id: string,

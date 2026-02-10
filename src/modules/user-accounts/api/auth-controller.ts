@@ -85,7 +85,7 @@ export class AuthController {
       loginResult.refreshToken,
       this.getCookieOptions(),
     );
-    console.log('tokens: ', loginResult);
+
     return {
       accessToken: loginResult.accessToken,
     };
@@ -144,7 +144,7 @@ export class AuthController {
 
     const refreshResult: { accessToken: string; refreshToken: string } =
       await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
-    console.log('refreshResult: ', refreshResult);
+
     res.cookie(
       'refreshToken',
       refreshResult.refreshToken,

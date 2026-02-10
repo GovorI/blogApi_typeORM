@@ -860,34 +860,34 @@ describe('Posts (e2e)', () => {
     });
   });
 
-      /**
-       * Группа тестов для проверки пагинации и сортировки
-       */
-      describe('Пагинация и сортировка постов', () => {
-        beforeEach(async () => {
-          await clearDb(app);
+  /**
+   * Группа тестов для проверки пагинации и сортировки
+   */
+  describe('Пагинация и сортировка постов', () => {
+    beforeEach(async () => {
+      await clearDb(app);
 
-          const blog = await createTestBlog('Pagination Blog', 'Description');
-          createdBlogId = blog.id;
+      const blog = await createTestBlog('Pagination Blog', 'Description');
+      createdBlogId = blog.id;
 
-          // Создаем 10 постов для тестирования пагинации
-          for (let i = 0; i < 10; i++) {
-            await request(app.getHttpServer())
-              .post(`/api/sa/blogs/${createdBlogId}/posts`)
-              .auth(adminCredentials.username, adminCredentials.password, {
-                type: 'basic',
-              })
-              .send({
-                title: `Post ${i}`,
-                shortDescription: `Description ${i}`,
-                content: `Content ${i}`,
-              })
-              .expect(201);
+      // Создаем 10 постов для тестирования пагинации
+      for (let i = 0; i < 10; i++) {
+        await request(app.getHttpServer())
+          .post(`/api/sa/blogs/${createdBlogId}/posts`)
+          .auth(adminCredentials.username, adminCredentials.password, {
+            type: 'basic',
+          })
+          .send({
+            title: `Post ${i}`,
+            shortDescription: `Description ${i}`,
+            content: `Content ${i}`,
+          })
+          .expect(201);
 
-            // Задержка для различия времени создания
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
-        });
+        // Задержка для различия времени создания
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    });
 
     /**
      * Тест пагинации: первая страница

@@ -11,13 +11,12 @@ import { ErrorResponseBody } from './error-response-body.type';
 import { DomainExceptionCode } from '../domain-exception-codes';
 import { CoreConfig } from '../../core.config';
 
-
 //https://docs.nestjs.com/exception-filters#exception-filters-1
 //Все ошибки
 @Injectable()
 @Catch()
 export class AllHttpExceptionsFilter implements ExceptionFilter {
-  constructor(private readonly coreConfig: CoreConfig) { }
+  constructor(private readonly coreConfig: CoreConfig) {}
   catch(exception: any, host: ArgumentsHost): void {
     //ctx нужен, чтобы получить request и response (express). Это из документации, делаем по аналогии
     const ctx = host.switchToHttp();
@@ -43,11 +42,7 @@ export class AllHttpExceptionsFilter implements ExceptionFilter {
     }
 
     // Формируем тело ответа
-    const responseBody = this.buildResponseBody(
-      request.url,
-      message,
-      code
-    );
+    const responseBody = this.buildResponseBody(request.url, message, code);
 
     response.status(status).json(responseBody);
   }
@@ -70,7 +65,7 @@ export class AllHttpExceptionsFilter implements ExceptionFilter {
   private buildResponseBody(
     requestUrl: string,
     message: string,
-    code: number
+    code: number,
   ): ErrorResponseBody {
     const isProduction = this.coreConfig.env === 'production';
     const showDetails = this.coreConfig.sendInternalServerErrorDetails;
@@ -78,7 +73,11 @@ export class AllHttpExceptionsFilter implements ExceptionFilter {
     return {
       timestamp: new Date().toISOString(),
       path: isProduction ? null : requestUrl,
-      message: isProduction ? 'Internal server error' : (showDetails ? message : 'Internal server error'),
+      message: isProduction
+        ? 'Internal server error'
+        : showDetails
+          ? message
+          : 'Internal server error',
       extensions: [],
       code: code,
     };

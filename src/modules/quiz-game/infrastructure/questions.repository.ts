@@ -2,18 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { QuizQuestionEntity } from '../domain/quiz-question.entity';
+import { QuestionEntity } from '../domain/question.entity';
 import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 
 @Injectable()
-export class QuizQuestionsRepository {
+export class QuestionsRepository {
   constructor(
-    @InjectRepository(QuizQuestionEntity)
-    private readonly repo: Repository<QuizQuestionEntity>,
+    @InjectRepository(QuestionEntity)
+    private readonly repo: Repository<QuestionEntity>,
   ) {}
 
-  createEntity(data: Partial<QuizQuestionEntity>): QuizQuestionEntity {
+  createEntity(data: Partial<QuestionEntity>): QuestionEntity {
     return this.repo.create({
       ...data,
       id: data.id ?? randomUUID(),
@@ -22,7 +22,7 @@ export class QuizQuestionsRepository {
     });
   }
 
-  async save(entity: QuizQuestionEntity): Promise<QuizQuestionEntity> {
+  async save(entity: QuestionEntity): Promise<QuestionEntity> {
     return this.repo.save(entity);
   }
 
@@ -32,7 +32,7 @@ export class QuizQuestionsRepository {
     await this.save(entity);
   }
 
-  async findByIdOrNotFoundFail(id: string): Promise<QuizQuestionEntity> {
+  async findByIdOrNotFoundFail(id: string): Promise<QuestionEntity> {
     const entity = await this.repo.findOne({
       where: { id, deletedAt: IsNull() },
     });

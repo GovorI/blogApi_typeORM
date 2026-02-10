@@ -1,4 +1,4 @@
-import { QuizQuestionEntity } from '../../domain/quiz-question.entity';
+import { QuestionEntity } from '../../domain/question.entity';
 
 export class QuizQuestionViewDto {
   id: string;
@@ -8,7 +8,7 @@ export class QuizQuestionViewDto {
   createdAt: Date;
   updatedAt: Date | null;
 
-  static mapToView(entity: QuizQuestionEntity): QuizQuestionViewDto {
+  static mapToView(entity: QuestionEntity): QuizQuestionViewDto {
     const dto = new QuizQuestionViewDto();
 
     dto.id = entity.id;

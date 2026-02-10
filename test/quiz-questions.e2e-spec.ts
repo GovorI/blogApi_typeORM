@@ -7,6 +7,7 @@ import { appSetup } from '../src/setup/app.setup';
 import { AppDataSource } from '../src/db/data-source';
 import { initAppAndListen } from './helpers/e2e-app';
 import { clearDb } from './helpers/e2e-db';
+import { isBodyParameter } from '@nestjs/swagger/dist/utils/is-body-parameter.util';
 
 const logger = new Logger('QuizQuestionsE2E');
 
@@ -361,6 +362,446 @@ describe('Quiz Questions SA (e2e)', () => {
           type: 'basic',
         })
         .expect(404);
+    });
+  });
+
+  describe('create game and connection players', () => {
+    let tokenPlayer1: string;
+    let tokenPlayer2: string;
+    let tokenPlayer3: string;
+
+    beforeEach(async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/registration')
+        .send({
+          login: 'user1',
+          email: 'p1@example.com',
+          password: 'password1',
+        })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/registration')
+        .send({
+          login: 'user2',
+          email: 'p2@example.com',
+          password: 'password2',
+        })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/registration')
+        .send({
+          login: 'user3',
+          email: 'p3@example.com',
+          password: 'password3',
+        })
+        .expect(204);
+
+      const player1 = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ loginOrEmail: 'user1', password: 'password1' })
+        .expect(200);
+      tokenPlayer1 = player1.body.accessToken;
+
+      const player2 = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ loginOrEmail: 'user2', password: 'password2' })
+        .expect(200);
+      tokenPlayer2 = player2.body.accessToken;
+
+      const player3 = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ loginOrEmail: 'user3', password: 'password3' })
+        .expect(200);
+      tokenPlayer3 = player3.body.accessToken;
+
+      for (let i = 1; i <= 5; i++) {
+        const createdQuestion = await request(app.getHttpServer())
+          .post('/api/sa/quiz/questions')
+          .auth(adminCredentials.username, adminCredentials.password, {
+            type: 'basic',
+          })
+          .send({
+            body: `First question ${i} long text`,
+            correctAnswers: [`answer ${i}`],
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .put(`/api/sa/quiz/questions/${createdQuestion.body.id}/publish`)
+          .auth(adminCredentials.username, adminCredentials.password, {
+            type: 'basic',
+          })
+          .send({ published: true })
+          .expect(204);
+      }
+    });
+
+    it('POST /pair-game-quiz/pairs/connection should return 401 without auth', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .expect(401);
+
+      expect(res.body).toHaveProperty('code');
+      expect(res.body).toHaveProperty('message');
+      expect(res.body).toHaveProperty(
+        'path',
+        '/api/pair-game-quiz/pairs/connection',
+      );
+    });
+
+    it('POST /sa/quiz/questions should create 5 questions and publish them', async () => {
+      for (let i = 10; i <= 15; i++) {
+        const createdQuestion = await request(app.getHttpServer())
+          .post('/api/sa/quiz/questions')
+          .auth(adminCredentials.username, adminCredentials.password, {
+            type: 'basic',
+          })
+          .send({
+            body: `First question ${i} long text`,
+            correctAnswers: [`answer ${i}`],
+          })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .put(`/api/sa/quiz/questions/${createdQuestion.body.id}/publish`)
+          .auth(adminCredentials.username, adminCredentials.password, {
+            type: 'basic',
+          })
+          .send({ published: true })
+          .expect(204);
+      }
+    });
+
+    it('same player cannot create another connection while has unfinished game -> 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(403);
+    });
+
+    it('both players cannot reconnect while game is active -> 403 for both', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(403);
+    });
+
+    it('fist player connecting to game. status game must be "PendingSecondPlayer"', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+    });
+
+    it('second player connecting to game. status game must be "Active"', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+    });
+
+    it('get my current game with status "PendingSecondPlayer"', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my-current')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+    });
+
+    it('get my current game with status "active"', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my-current')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+    });
+
+    it('get game by id', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my-current')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      const gameId = res.body.id;
+
+      await request(app.getHttpServer())
+        .get(`/api/pair-game-quiz/pairs/${gameId}`)
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+    });
+
+    it(
+      'Should return error if current user tries to get pair in which not' +
+        ' participated; status 403',
+      async () => {
+        await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/connection')
+          .set('Authorization', `Bearer ${tokenPlayer1}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/connection')
+          .set('Authorization', `Bearer ${tokenPlayer2}`)
+          .expect(200);
+
+        const res = await request(app.getHttpServer())
+          .get('/api/pair-game-quiz/pairs/my-current')
+          .set('Authorization', `Bearer ${tokenPlayer1}`)
+          .expect(200);
+
+        const gameId = res.body.id;
+
+        await request(app.getHttpServer())
+          .get(`/api/pair-game-quiz/pairs/${gameId}`)
+          .set('Authorization', `Bearer ${tokenPlayer3}`)
+          .expect(403);
+      },
+    );
+
+    it('set answer should return 401 without auth', async () => {
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .send({ answer: 'answer 1' })
+        .expect(401);
+    });
+
+    it('set answer: case-insensitive and trimmed correctness (score +1)', async () => {
+      // connect both to start an active game
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: '  AnSwEr 1  ' })
+        .expect(200);
+
+      expect(res.body).toHaveProperty('questionId');
+      expect(res.body).toHaveProperty('answerStatus');
+      expect(res.body).toHaveProperty('addedAt');
+
+      const cur = await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my-current')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      expect(Array.isArray(cur.body.firstPlayerProgress.answers)).toBe(true);
+      expect(cur.body.firstPlayerProgress.answers.length).toBe(1);
+      expect(cur.body.firstPlayerProgress.answers[0]).toHaveProperty(
+        'questionId',
+      );
+      expect(cur.body.firstPlayerProgress.answers[0]).toHaveProperty(
+        'answerStatus',
+      );
+      expect(cur.body.firstPlayerProgress.answers[0]).toHaveProperty('addedAt');
+    });
+
+    it('set answer should return 400 for invalid dto (empty answer)', async () => {
+      // activate game
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: '' })
+        .expect(400);
+
+      expect(res.body).toHaveProperty('errorsMessages');
+      expect(Array.isArray(res.body.errorsMessages)).toBe(true);
+    });
+
+    it('set answer should return 403 when user has no active game', async () => {
+      // no connection to any game yet
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: 'anything' })
+        .expect(403);
+    });
+
+    it('happy path: both players answer all questions -> game is Finished and each has 5 answers', async () => {
+      // activate game
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      // get game id before finishing
+      const current = await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my-current')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      const gameId = current.body.id;
+
+      const send = async (token: string, answer: string) =>
+        request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/my-current/answers')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ answer });
+
+      for (let i = 1; i <= 5; i++) {
+        const r1 = await send(tokenPlayer1, `answer ${i}`);
+        expect(r1.status).toBe(200);
+        await new Promise((r) => setTimeout(r, 10)); // tiny gap
+        const r2 = await send(tokenPlayer2, `answer ${i}`);
+        expect(r2.status).toBe(200);
+        await new Promise((r) => setTimeout(r, 10));
+      }
+
+      // verify finished and both have 5 answers
+      const byId = await request(app.getHttpServer())
+        .get(`/api/pair-game-quiz/pairs/${gameId}`)
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      expect(byId.body.status).toBe('Finished');
+      expect(byId.body.finishGameDate).toBeTruthy();
+
+      expect(Array.isArray(byId.body.firstPlayerProgress.answers)).toBe(true);
+      expect(Array.isArray(byId.body.secondPlayerProgress.answers)).toBe(true);
+      expect(byId.body.firstPlayerProgress.answers.length).toBe(5);
+      expect(byId.body.secondPlayerProgress.answers.length).toBe(5);
+    });
+
+    it('prevent answering more than available questions (6th -> 403)', async () => {
+      // activate game
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      // player1 answers 5 times
+      for (let i = 1; i <= 5; i++) {
+        const r = await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/my-current/answers')
+          .set('Authorization', `Bearer ${tokenPlayer1}`)
+          .send({ answer: `answer ${i}` });
+        expect(r.status).toBe(200);
+      }
+
+      // 6th attempt -> 403
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: 'extra' })
+        .expect(403);
+    });
+
+    it('set answer should return 403 when game is PendingSecondPlayer (only first connected)', async () => {
+      // only first connects -> game is PendingSecondPlayer
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: 'any' })
+        .expect(403);
+    });
+
+    it('set answer should return 403 after the game is Finished (no more answers allowed)', async () => {
+      // activate game
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/connection')
+        .set('Authorization', `Bearer ${tokenPlayer2}`)
+        .expect(200);
+
+      // player1 answers 5
+      for (let i = 1; i <= 5; i++) {
+        const r = await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/my-current/answers')
+          .set('Authorization', `Bearer ${tokenPlayer1}`)
+          .send({ answer: `answer ${i}` });
+        expect(r.status).toBe(200);
+      }
+
+      // player2 answers 5
+      for (let i = 1; i <= 5; i++) {
+        const r = await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/my-current/answers')
+          .set('Authorization', `Bearer ${tokenPlayer2}`)
+          .send({ answer: `answer ${i}` });
+        expect(r.status).toBe(200);
+      }
+
+      // game finished; now any further answer should be forbidden
+      await request(app.getHttpServer())
+        .post('/api/pair-game-quiz/pairs/my-current/answers')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .send({ answer: 'extra-after-finish' })
+        .expect(403);
     });
   });
 });

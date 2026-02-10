@@ -4,4 +4,3 @@ export class PasswordRecoveryInputDto {
   @IsEmail()
   email: string;
 }
-

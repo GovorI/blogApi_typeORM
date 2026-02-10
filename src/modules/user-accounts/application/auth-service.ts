@@ -26,8 +26,6 @@ export class AuthService {
     const user: UserEntity | null =
       await this.usersRepository.findByLoginOrEmail(loginOrEmail);
 
-    console.log('Finded user in auth service', user);
-
     if (!user) {
       console.log('❌ User not found by login or email:', loginOrEmail);
       const key = `login:${ip ?? 'unknown'}`;
@@ -70,7 +68,6 @@ export class AuthService {
       }
       return null;
     }
-    console.log(user);
     return { id: user.id };
   }
 }

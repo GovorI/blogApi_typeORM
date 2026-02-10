@@ -9,19 +9,17 @@ import {
   GetSaQuizQuestionsQueryParams,
   PublishedStatus,
   SaQuizQuestionsSortBy,
-} from '../api/sa/sa-quiz-questions.get-query-params.input-dto';
+} from '../api/input-dto/sa-quiz-questions.get-query-params.input-dto';
 import { QuizQuestionViewDto } from '../api/view-dto/quiz-question.view-dto';
-import { QuizQuestionEntity } from '../domain/quiz-question.entity';
+import { QuestionEntity } from '../domain/question.entity';
 
 @Injectable()
-export class QuizQuestionsQueryRepository {
-  constructor(
-    @InjectDataSource() private dataSource: DataSource,
-  ) {}
+export class QuestionsQueryRepository {
+  constructor(@InjectDataSource() private dataSource: DataSource) {}
 
   async getByIdOrNotFoundFail(id: string): Promise<QuizQuestionViewDto> {
     const question = await this.dataSource
-      .getRepository(QuizQuestionEntity)
+      .getRepository(QuestionEntity)
       .createQueryBuilder('q')
       .where('q.id = :id', { id })
       .andWhere('q.deletedAt IS NULL')
@@ -40,7 +38,7 @@ export class QuizQuestionsQueryRepository {
   async getAll(
     query: GetSaQuizQuestionsQueryParams,
   ): Promise<PaginatedViewDto<QuizQuestionViewDto[]>> {
-    const questionsRepository = this.dataSource.getRepository(QuizQuestionEntity);
+    const questionsRepository = this.dataSource.getRepository(QuestionEntity);
 
     const baseQuery = questionsRepository
       .createQueryBuilder('q')
@@ -66,7 +64,8 @@ export class QuizQuestionsQueryRepository {
       [SaQuizQuestionsSortBy.UpdatedAt]: 'q.updatedAt',
     } as const;
 
-    const sortBy = allowedSortFields[query.sortBy ?? SaQuizQuestionsSortBy.CreatedAt];
+    const sortBy =
+      allowedSortFields[query.sortBy ?? SaQuizQuestionsSortBy.CreatedAt];
     const sortDirection =
       query.sortDirection === SortDirection.Asc ? 'ASC' : 'DESC';
 
@@ -86,5 +85,26 @@ export class QuizQuestionsQueryRepository {
       totalCount,
       items,
     });
+  }
+
+  async findRandomPublishedIds(limit: number): Promise<QuestionEntity[]> {
+    const questions = await this.dataSource
+      .getRepository(QuestionEntity)
+      .createQueryBuilder('q')
+      .where('q.published = :published', { published: true })
+      .andWhere('q.deletedAt IS NULL')
+      .orderBy('RANDOM()')
+      .limit(limit)
+      .getMany();
+
+    if (questions.length < limit) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Not enough published questions',
+      });
+    }
+
+    // return questions.map((q) => q.id);
+    return questions;
   }
 }

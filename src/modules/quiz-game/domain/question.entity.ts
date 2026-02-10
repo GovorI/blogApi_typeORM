@@ -3,7 +3,7 @@ import { DomainException } from '../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 
 @Entity('QuizQuestions')
-export class QuizQuestionEntity {
+export class QuestionEntity {
   @PrimaryColumn('uuid')
   id: string;
 

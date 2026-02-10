@@ -5,7 +5,7 @@ import {
 } from 'class-validator';
 
 export function IsEmailOrUsername(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isEmailOrUsername',
       target: object.constructor,
@@ -25,8 +25,8 @@ export function IsEmailOrUsername(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid email or username (3-10 alphanumeric characters)`;
-        }
-      }
+        },
+      },
     });
   };
 }

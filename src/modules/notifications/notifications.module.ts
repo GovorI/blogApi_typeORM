@@ -30,4 +30,4 @@ import { ConfigService } from '@nestjs/config';
   providers: [NotificationsConfig, EmailService],
   exports: [NotificationsConfig, EmailService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

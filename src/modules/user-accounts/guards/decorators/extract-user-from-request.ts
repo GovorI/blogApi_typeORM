@@ -11,8 +11,6 @@ export const ExtractUserFromRequest = createParamDecorator(
     const request = ctx.switchToHttp().getRequest<Request>();
     const user = request.user as UserContextDto;
 
-    console.log('🔍 ExtractUserFromRequest:', user);
-
     // For optional authentication, return null when there's no user
     if (!user || !user.id) {
       return null;

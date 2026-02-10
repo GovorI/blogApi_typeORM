@@ -10,7 +10,7 @@ import { cookieSetup } from './cookieSetup';
 export function appSetup(app: INestApplication) {
   const coreConfig = app.get<CoreConfig>(CoreConfig);
 
-  cookieSetup(app)
+  cookieSetup(app);
   if (coreConfig.isSwaggerEnabled) {
     swaggerSetup(app);
   }

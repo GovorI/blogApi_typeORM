@@ -85,7 +85,7 @@ describe('CommentsController (e2e)', () => {
       .post(`/api/posts/${postResponse.body.id}/comments`)
       .set('Authorization', `Bearer ${testUser.accessToken}`)
       .send({
-        content: 'This is a test comment with more than 20 characters'
+        content: 'This is a test comment with more than 20 characters',
       });
 
     if (commentResponse.status !== 201) {

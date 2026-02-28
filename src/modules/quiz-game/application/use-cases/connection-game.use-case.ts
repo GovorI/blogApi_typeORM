@@ -22,7 +22,6 @@ export class ConnectionGameUseCase {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
-    private readonly gameQuestionsRepository: GameQuestionsRepository,
     private readonly dataSource: DataSource,
     private readonly questionsQueryRepository: QuestionsQueryRepository,
     private readonly gameQueryRepository: GameQueryRepository,

@@ -200,6 +200,7 @@ export class SetAnswerUseCase {
                   bonusScore,
                   manager,
                 );
+                player1.score = bonusScore;
               } else if (
                 lastAnswer2.addedAt < lastAnswer1.addedAt &&
                 correctAnswers2 > 0
@@ -211,8 +212,32 @@ export class SetAnswerUseCase {
                   bonusScore,
                   manager,
                 );
+                player2.score = bonusScore;
+              }
+              if (player1.score === player2.score) {
+                await this.gameRepository.setWinnerId(
+                  game.gameId,
+                  null,
+                  manager,
+                );
               }
             }
+          }
+
+          if (player1.score > player2.score) {
+            await this.gameRepository.setWinnerId(
+              game.gameId,
+              player1.id,
+              manager,
+            );
+          } else if (player2.score > player1.score) {
+            await this.gameRepository.setWinnerId(
+              game.gameId,
+              player2.id,
+              manager,
+            );
+          } else {
+            await this.gameRepository.setWinnerId(game.gameId, null, manager);
           }
 
           // Mark game finished

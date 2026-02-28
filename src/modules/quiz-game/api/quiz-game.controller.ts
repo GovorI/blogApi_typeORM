@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -19,37 +20,57 @@ import { GetGameByIdCommand } from '../application/use-cases/get-game-by-id.use-
 import { SetAnswerCommand } from '../application/use-cases/set-answer.use-case';
 import { SetAnswerInputDto } from './input-dto/set-answer.input-dto';
 import { AnswerViewDto } from './view-dto/answer.view-dto';
+import { GetAllUserGamesGetQueryParams } from './input-dto/get-all-user-games.get-query-params';
+import { GameQueryRepository } from '../infrastructure/game.query-repository';
+import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
+import { UserStatisticViewDto } from './view-dto/user-statustic.view-dto';
 
-@Controller('pair-game-quiz/pairs')
+@Controller('pair-game-quiz')
 export class QuizGameController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly gameQueryRepo: GameQueryRepository,
+  ) {}
 
-  @Get('my-current')
+  @Get('pairs/my')
+  @UseGuards(JwtAuthGuard)
+  async getAllUserGames(
+    @ExtractUserFromRequest() user: UserContextDto,
+    @Query() queryParams: GetAllUserGamesGetQueryParams,
+  ): Promise<PaginatedViewDto<GameViewDto[]>> {
+    const res = await this.gameQueryRepo.getAllUserGames(user.id, queryParams);
+    console.log('all user games', res);
+    return res;
+  }
+
+  @Get('users/my-statistic')
+  @UseGuards(JwtAuthGuard)
+  async getUserStatistic(
+    @ExtractUserFromRequest() user: UserContextDto,
+  ): Promise<UserStatisticViewDto> {
+    return this.gameQueryRepo.getUserStatistic(user.id);
+  }
+
+  @Get('pairs/my-current')
   @UseGuards(JwtAuthGuard)
   async getCurrentUnfinishedUserGame(
     @ExtractUserFromRequest() user: UserContextDto,
   ): Promise<GameViewDto> {
-    const res = await this.commandBus.execute(
+    return this.commandBus.execute(
       new GetCurrentUserUnfinishedGameCommand(user.id),
     );
-    console.log('my current game', res);
-    return res;
   }
 
-  @Get(':id')
+  @Get('pairs/:id')
   @UseGuards(JwtAuthGuard)
   async getGameById(
     @Param('id', ParseUUIDPipe) id: string,
     @ExtractUserFromRequest() user: UserContextDto,
   ): Promise<GameViewDto> {
-    const res = await this.commandBus.execute(
-      new GetGameByIdCommand(id, user.id),
-    );
-    console.log('game by id', res);
-    return res;
+    return this.commandBus.execute(new GetGameByIdCommand(id, user.id));
   }
 
-  @Post('connection')
+  @Post('pairs/connection')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async createGameConnection(
@@ -58,7 +79,7 @@ export class QuizGameController {
     return this.commandBus.execute(new ConnectionGameCommand(user.id));
   }
 
-  @Post('my-current/answers')
+  @Post('pairs/my-current/answers')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async setAnswer(

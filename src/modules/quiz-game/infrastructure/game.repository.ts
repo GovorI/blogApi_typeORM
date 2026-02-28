@@ -51,6 +51,16 @@ export class GameRepository {
     });
   }
 
+  async setWinnerId(
+    gameId: string,
+    winnerId: string | null,
+    manager?: EntityManager,
+  ): Promise<GameEntity> {
+    const repo = this.getRepo(manager);
+    await repo.update(gameId, { winnerId });
+    return repo.findOneOrFail({ where: { gameId } });
+  }
+
   findUnfinishedByUserId(
     userId: string,
     manager?: EntityManager,

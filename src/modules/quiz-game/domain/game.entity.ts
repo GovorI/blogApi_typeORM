@@ -38,4 +38,7 @@ export class GameEntity {
 
   @OneToMany(() => PlayerEntity, (player) => player.quizGame)
   players: PlayerEntity[];
+
+  @Column({ type: 'uuid', nullable: true })
+  winnerId: string | null;
 }

@@ -803,5 +803,65 @@ describe('Quiz Questions SA (e2e)', () => {
         .send({ answer: 'extra-after-finish' })
         .expect(403);
     });
+    it('GET /pair-game-quiz/pairs/my: sorted by status returns finished and current games', async () => {
+      const startGame = async () => {
+        await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/connection')
+          .set('Authorization', `Bearer ${tokenPlayer1}`)
+          .expect(200);
+        await request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/connection')
+          .set('Authorization', `Bearer ${tokenPlayer2}`)
+          .expect(200);
+      };
+
+      const send = async (token: string, answer: string) =>
+        request(app.getHttpServer())
+          .post('/api/pair-game-quiz/pairs/my-current/answers')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ answer });
+
+      const finishGame = async () => {
+        for (let i = 1; i <= 5; i++) {
+          const r1 = await send(tokenPlayer1, `answer ${i}`);
+          expect(r1.status).toBe(200);
+          await new Promise((r) => setTimeout(r, 5));
+          const r2 = await send(tokenPlayer2, `answer ${i}`);
+          expect(r2.status).toBe(200);
+          await new Promise((r) => setTimeout(r, 5));
+        }
+      };
+
+      // Завершить 3 игры
+      for (let g = 0; g < 3; g++) {
+        await startGame();
+        await finishGame();
+      }
+
+      // Начать 4-ю игру и не завершать
+      await startGame();
+
+      // Запросить список игр с сортировкой по статусу (ASC)
+      const res = await request(app.getHttpServer())
+        .get('/api/pair-game-quiz/pairs/my?sortBy=status&sortDirection=ASC')
+        .set('Authorization', `Bearer ${tokenPlayer1}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(4);
+
+      const statuses = res.body.map((g: any) => g.status);
+      const finishedCount = statuses.filter(
+        (s: string) => s === 'Finished',
+      ).length;
+      const activeCount = statuses.filter((s: string) => s === 'Active').length;
+
+      expect(finishedCount).toBe(3);
+      expect(activeCount).toBe(1);
+
+      // Проверяем, что список реально отсортирован лексикографически по статусу
+      const sortedCopy = [...statuses].sort();
+      expect(statuses).toEqual(sortedCopy);
+    });
   });
 });

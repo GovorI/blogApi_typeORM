@@ -58,14 +58,6 @@ export class CommentsController {
     @Body() likeStatusDto: LikeStatusInputDto,
     @ExtractUserFromRequest() user: UserContextDto,
   ) {
-    // Validate UUID format
-    // if (!uuidValidate(commentId)) {
-    //   throw new DomainException({
-    //     code: DomainExceptionCode.BadRequest,
-    //     message: 'Invalid comment ID format',
-    //   });
-    // }
-
     await this.commandBus.execute(
       new SetLikeStatusForCommentCommand(commentId, likeStatusDto, user.id),
     );
@@ -78,14 +70,6 @@ export class CommentsController {
     @Param('id', ParseUUIDPipe) commentId: string,
     @ExtractUserFromRequest() user: UserContextDto,
   ) {
-    // Validate UUID format
-    // if (!uuidValidate(commentId)) {
-    //   throw new DomainException({
-    //     code: DomainExceptionCode.BadRequest,
-    //     message: 'Invalid comment ID format',
-    //   });
-    // }
-
     await this.commandBus.execute(new DeleteCommentCommand(commentId, user.id));
   }
 }

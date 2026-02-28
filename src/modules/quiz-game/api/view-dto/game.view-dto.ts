@@ -98,45 +98,12 @@ export class GameViewDto {
             ?.score ?? 0,
       };
 
-      // viewDto.questions = entity.questions.map((q) => ({
-      //   id: q.questionId,
-      //   body: q.question.body,
       viewDto.questions = [...entity.questions]
         .sort((a, b) => a.index - b.index)
         .map((q) => ({
           id: q.questionId,
           body: q.question.body,
         }));
-      // secondPlayerProgress: {
-      //   answers: entity.players
-      //     .filter((p) => p.position === positionNumber.Second)
-      //     .flatMap((p) =>
-      //       p.answers.map((a) => ({
-      //         questionId: a.questionId,
-      //         answerStatus: a.status,
-      //         addedAt: a.addedAt,
-      //       })),
-      //     ),
-      //   player: {
-      //     id:
-      //       entity.players.find((p) => p.position === positionNumber.Second)
-      //         ?.userId ?? null,
-      //     login:
-      //       entity.players.find((p) => p.position === positionNumber.Second)
-      //         ?.user.login ?? null,
-      //   },
-      //   score:
-      //     entity.players.find((p) => p.position === positionNumber.Second)
-      //       ?.score ?? 0,
-      // },
-      // questions: entity.questions.map((q) => ({
-      //   id: q.questionId,
-      //   body: q.question.body,
-      // })),
-      // status: entity.status,
-      // pairCreatedDate: entity.pairCreatedDate,
-      // startGameDate: entity.startGameDate,
-      // finishGameDate: entity.finishGameDate,
     }
     return viewDto;
   }

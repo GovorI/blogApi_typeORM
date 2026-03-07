@@ -42,3 +42,41 @@ Quiz game:
         - Игрок А: 🟥🟥🟥🟥🟥: 0 - 0 - 0 - 0 - 0  +0 (нет бонуса, так как все неправильные) = 0;
         - Игрок Б: 🟥✅🟥🟥🟥0 - 1- 0 - 0 - 0 - +0 (нет бонуса, так как не быстрее игрока A ответил) = 1;
         Победил Игрок Б
+    10. Статистика по всем играм — топ участников:
+
+        Эндпоинт GET /pair-game-quiz/users/top — возвращает список лучших игроков по итогам всех завершённых игр.
+
+        Требуется авторизация: Bearer JWT.
+
+        Параметры запроса (query):
+
+        - sort — строка или array[string].
+          Формат: "fieldName<пробел>sortDirection", где fieldName ∈ {avgScores, sumScore, winsCount, lossesCount}, sortDirection ∈ {asc, desc}.
+          Пример: ?sort=avgScores desc&sort=sumScore desc&sort=winsCount desc&sort=lossesCount asc
+          После парсинга на back-end: sort: ["avgScores desc", "sumScore desc", "winsCount desc", "lossesCount asc"].
+          Сначала сортируем по первому полю, при равенстве — по следующему и т.д.
+          Значение по умолчанию: ?sort=avgScores desc&sort=sumScore desc
+        - pageNumber — integer($int32). Номер страницы. По умолчанию: 1
+        - pageSize — integer($int32). Размер страницы. По умолчанию: 10
+
+        Ответ 200 (application/json):
+        {
+          "pagesCount": 0,
+          "page": 0,
+          "pageSize": 0,
+          "totalCount": 0,
+          "items": [
+            {
+              "sumScore": 0,
+              "avgScores": 0,
+              "gamesCount": 0,
+              "winsCount": 0,
+              "lossesCount": 0,
+              "drawsCount": 0,
+              "player": {
+                "id": "string",
+                "login": "string"
+              }
+            }
+          ]
+        }

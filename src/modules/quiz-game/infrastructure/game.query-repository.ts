@@ -12,10 +12,98 @@ import {
 import { SortDirection } from '../../../core/dto/base.query-params.input-dto';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
 import { UserStatisticViewDto } from '../api/view-dto/user-statustic.view-dto';
+import {
+  GetTopUsersQueryParams,
+  TopUsersSortBy,
+} from '../api/input-dto/get-top-users.query-params.input-dto';
+import {
+  TopUserRawRow,
+  TopUserViewDto,
+} from '../api/view-dto/top-user.view-dto';
 
 @Injectable()
 export class GameQueryRepository {
   constructor(@InjectDataSource() private dataSource: DataSource) {}
+
+  async getTopUsers(
+    queryParams: GetTopUsersQueryParams,
+  ): Promise<PaginatedViewDto<TopUserViewDto[]>> {
+    const repo = this.dataSource.getRepository(GameEntity);
+
+    const baseQB = repo
+      .createQueryBuilder('g')
+      .innerJoin('g.players', 'p')
+      .leftJoin('g.players', 'opponent', 'opponent.userId != p.userId')
+      .innerJoin('p.user', 'u')
+      .where('g.status = :status', { status: gameStatuses.Finished });
+
+    const totalRaw = await baseQB
+      .clone()
+      .select('COUNT(DISTINCT p.userId)', 'cnt')
+      .getRawOne<{ cnt: string | number }>();
+    const totalCount = Number(totalRaw?.cnt ?? 0);
+
+    const statsQB = baseQB
+      .clone()
+      .select('p.userId', 'userId')
+      .addSelect('u.login', 'login')
+      .addSelect('COUNT(DISTINCT g.gameId)', 'gamesCount')
+      .addSelect('SUM(p.score)', 'sumScore')
+      .addSelect('AVG(p.score)', 'avgScore')
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN p.score > opponent.score THEN g.gameId END)',
+        'winsCount',
+      )
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN p.score < opponent.score THEN g.gameId END)',
+        'lossesCount',
+      )
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN p.score = opponent.score THEN g.gameId END)',
+        'drawsCount',
+      )
+      .groupBy('p.userId')
+      .addGroupBy('u.login');
+
+    const sorts = queryParams.getSortTuples();
+
+    const orderMap: Record<TopUsersSortBy, string> = {
+      avgScores: '"avgScore"',
+      sumScore: '"sumScore"',
+      winsCount: '"winsCount"',
+      lossesCount: '"lossesCount"',
+    };
+
+    for (const { by, dir } of sorts) {
+      statsQB.addOrderBy(orderMap[by], dir);
+    }
+
+    try {
+      const [sql, params] = statsQB.getQueryAndParameters();
+      console.log('TopUsers SQL: ', sql, params);
+
+      // Приведём параметры пагинации к числам, даже если ValidationPipe не трансформировал типы
+      const pageSizeNum = Number((queryParams as any)?.pageSize ?? 10);
+      const pageNumberNum = Number((queryParams as any)?.pageNumber ?? 1);
+      const skipNum = (pageNumberNum - 1) * pageSizeNum;
+
+      // Выполним агрегирующий запрос и нарежем страницу в памяти — стабильно для GROUP BY RAW
+      const rows = await statsQB.getRawMany<TopUserRawRow>();
+      const pageRows = rows.slice(skipNum, skipNum + pageSizeNum);
+
+      const items = pageRows.map((r) => TopUserViewDto.mapToView(r));
+
+      return PaginatedViewDto.mapToView({
+        pageNumber: pageNumberNum,
+        pageSize: pageSizeNum,
+        totalCount,
+        items,
+      });
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  }
 
   async getAllUserGames(
     userId: string,
@@ -134,11 +222,6 @@ export class GameQueryRepository {
       .andWhere('filterPlayer.score = opponent.score')
       .getRawOne<{ cnt: string | number }>();
     const drawsCount = Number(drawsCountRaw?.cnt ?? 0);
-
-    // const gamesCount =
-    //   Number(winsCount?.cnt ?? 0) +
-    //   Number(lossesCount?.cnt ?? 0) +
-    //   Number(drawCount?.cnt ?? 0);
 
     const sumScoreRaw = await baseQB
       .clone()

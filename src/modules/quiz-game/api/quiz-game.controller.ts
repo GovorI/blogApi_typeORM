@@ -24,6 +24,8 @@ import { GetAllUserGamesGetQueryParams } from './input-dto/get-all-user-games.ge
 import { GameQueryRepository } from '../infrastructure/game.query-repository';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
 import { UserStatisticViewDto } from './view-dto/user-statustic.view-dto';
+import { GetTopUsersQueryParams } from './input-dto/get-top-users.query-params.input-dto';
+import { TopUserViewDto } from './view-dto/top-user.view-dto';
 
 @Controller('pair-game-quiz')
 export class QuizGameController {
@@ -31,6 +33,22 @@ export class QuizGameController {
     private readonly commandBus: CommandBus,
     private readonly gameQueryRepo: GameQueryRepository,
   ) {}
+
+  @Get('users/top')
+  async getTopUsers(
+    // @ExtractUserFromRequest() user: UserContextDto,
+    @Query() queryParams: GetTopUsersQueryParams,
+  ): Promise<PaginatedViewDto<TopUserViewDto[]>> {
+    return this.gameQueryRepo.getTopUsers(queryParams);
+  }
+
+  @Get('users/my-statistic')
+  @UseGuards(JwtAuthGuard)
+  async getUserStatistic(
+    @ExtractUserFromRequest() user: UserContextDto,
+  ): Promise<UserStatisticViewDto> {
+    return this.gameQueryRepo.getUserStatistic(user.id);
+  }
 
   @Get('pairs/my')
   @UseGuards(JwtAuthGuard)
@@ -41,14 +59,6 @@ export class QuizGameController {
     const res = await this.gameQueryRepo.getAllUserGames(user.id, queryParams);
     console.log('all user games', res);
     return res;
-  }
-
-  @Get('users/my-statistic')
-  @UseGuards(JwtAuthGuard)
-  async getUserStatistic(
-    @ExtractUserFromRequest() user: UserContextDto,
-  ): Promise<UserStatisticViewDto> {
-    return this.gameQueryRepo.getUserStatistic(user.id);
   }
 
   @Get('pairs/my-current')

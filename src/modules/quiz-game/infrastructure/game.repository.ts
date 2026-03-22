@@ -143,4 +143,63 @@ export class GameRepository {
       .addOrderBy('answers.addedAt', 'ASC')
       .getOne();
   }
+
+  async setLastAnsweredAt(
+    gameId: string,
+    timestamp: Date,
+    deadline: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(GameEntity) : this.repo;
+
+    console.log(`[GAME] Setting deadline for game ${gameId}: deadline=${deadline.toISOString()}`);
+
+    await repo.update(gameId, {
+      lastAnsweredAt: timestamp,
+      waitingForOpponentDeadline: deadline,
+    });
+
+    console.log(`[GAME] Deadline set successfully for game ${gameId}`);
+  }
+
+  async findExpiredGames(
+    deadline: Date,
+    manager?: EntityManager,
+  ): Promise<GameEntity[]> {
+    const repo = manager ? manager.getRepository(GameEntity) : this.repo;
+
+    console.log(`[GAME] Finding expired games with deadline <= ${deadline.toISOString()}`);
+
+    const result = await repo
+      .createQueryBuilder('game')
+      .where('game.status = :status', { status: gameStatuses.Active })
+      .andWhere('game.waitingForOpponentDeadline <= :deadline', { deadline })
+      .orderBy('game.waitingForOpponentDeadline', 'ASC')
+      .take(100)
+      .getMany();
+
+    console.log(`[GAME] Found ${result.length} expired games`);
+    if (result.length > 0) {
+      result.forEach(g => {
+        console.log(`[GAME]   - Game ${g.gameId}, deadline: ${g.waitingForOpponentDeadline?.toISOString()}`);
+      });
+    }
+
+    return result;
+  }
+
+  async markAsFinished(
+    gameId: string,
+    winnerId: string | null,
+    finishDate: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(GameEntity) : this.repo;
+
+    await repo.update(gameId, {
+      status: gameStatuses.Finished,
+      winnerId,
+      finishGameDate: finishDate,
+    });
+  }
 }

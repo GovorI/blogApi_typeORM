@@ -36,4 +36,30 @@ export class PlayerRepository {
       .where('id = :id', { id: playerId })
       .execute();
   }
+
+  async incrementScore(
+    playerId: string,
+    amount: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getRepo(manager)
+      .createQueryBuilder()
+      .update(PlayerEntity)
+      .set({ score: () => `score + ${amount}` })
+      .where('id = :id', { id: playerId })
+      .execute();
+  }
+
+  async findByGameId(
+    gameId: string,
+    manager?: EntityManager,
+  ): Promise<PlayerEntity[]> {
+    return this.getRepo(manager)
+      .createQueryBuilder('player')
+      .leftJoinAndSelect('player.answers', 'answers')
+      .where('player.gameId = :gameId', { gameId })
+      .orderBy('player.position', 'ASC')
+      .addOrderBy('answers.addedAt', 'ASC')
+      .getMany();
+  }
 }

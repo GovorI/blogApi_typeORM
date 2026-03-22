@@ -41,4 +41,10 @@ export class GameEntity {
 
   @Column({ type: 'uuid', nullable: true })
   winnerId: string | null;
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  lastAnsweredAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  waitingForOpponentDeadline: Date | null;
 }

@@ -23,6 +23,8 @@ import { GetCurrentUserUnfinishedGame } from './application/use-cases/get-curren
 import { GetGameByIdUseCase } from './application/use-cases/get-game-by-id.use-case';
 import { SetAnswerUseCase } from './application/use-cases/set-answer.use-case';
 import { AnswerRepository } from './infrastructure/answer.repository';
+import { GameTimeoutService } from './application/crone.service';
+import { GameFinishService } from './application/game-finish.service';
 
 const useCases = [
   CreateQuizQuestionUseCase,
@@ -56,6 +58,8 @@ const useCases = [
     PlayerRepository,
     GameQueryRepository,
     AnswerRepository,
+    GameTimeoutService,
+    GameFinishService,
   ],
   exports: [],
 })

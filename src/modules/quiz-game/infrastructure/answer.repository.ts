@@ -27,41 +27,30 @@ export class AnswerRepository {
     manager?: EntityManager,
   ): Promise<AnswerEntity> {
     return manager ? manager.save(entity) : this.repo.save(entity);
+  }
 
-    // return this.getRepo(manager).save(entity);
+  async saveMany(
+    entities: AnswerEntity[],
+    manager?: EntityManager,
+  ): Promise<AnswerEntity[]> {
+    return manager ? manager.save(entities) : this.repo.save(entities);
+  }
 
-    // if (!entity.playerId) {
-    //   console.error('PlayerId is null before save!');
-    //   throw new Error('PlayerId cannot be null');
-    // }
-    //
-    // // Сохраняем значение playerId
-    // const playerId = entity.playerId;
-    //
-    // // Если используется manager
-    // if (manager) {
-    //   const savedEntity = await manager.save(entity);
-    //
-    //   // Если playerId был утерян после save, восстанавливаем его
-    //   if (!savedEntity.playerId) {
-    //     console.log('Restoring lost playerId:', playerId);
-    //     savedEntity.playerId = playerId;
-    //     await manager.save(savedEntity);
-    //   }
-    //
-    //   return savedEntity;
-    // }
-    //
-    // // Если manager не предоставлен
-    // const savedEntity = await this.repo.save(entity);
-    //
-    // // Если playerId был утерян после save, восстанавливаем его
-    // if (!savedEntity.playerId) {
-    //   console.log('Restoring lost playerId:', playerId);
-    //   savedEntity.playerId = playerId;
-    //   await this.repo.save(savedEntity);
-    // }
-    //
-    // return savedEntity;
+  async countByPlayerId(
+    playerId: string,
+    manager?: EntityManager,
+  ): Promise<number> {
+    return this.getRepo(manager).count({ where: { playerId } });
+  }
+
+  async findByPlayerId(
+    playerId: string,
+    manager?: EntityManager,
+  ): Promise<AnswerEntity[]> {
+    return this.getRepo(manager)
+      .createQueryBuilder('answer')
+      .where('answer.playerId = :playerId', { playerId })
+      .orderBy('answer.addedAt', 'ASC')
+      .getMany();
   }
 }

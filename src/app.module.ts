@@ -28,6 +28,7 @@ function getModuleImports(): any[] {
         synchronize: false,
         logging: false,
         maxQueryExecutionTime: 1000,
+        timezone: 'utc',
       }),
       inject: [CoreConfig],
     }),

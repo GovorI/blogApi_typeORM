@@ -12,6 +12,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Package locks (keep only npm's)
+yarn.lock
+
 # OS
 .DS_Store
 

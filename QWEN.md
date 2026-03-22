@@ -69,11 +69,11 @@ module-name/
 ### Prerequisites
 - Node.js (v18+)
 - PostgreSQL database
-- Yarn or npm
+- npm
 
 ### Installation
 ```bash
-yarn install
+npm install
 ```
 
 ### Environment Setup
@@ -95,67 +95,67 @@ NODE_ENV=development
 ### Development
 ```bash
 # Start in watch mode
-yarn run start:dev
+npm run start:dev
 
 # Start with debug mode
-yarn run start:debug
+npm run start:debug
 ```
 
 ### Production
 ```bash
 # Build
-yarn run build
+npm run build
 
 # Run production build
-yarn run start:prod
+npm run start:prod
 ```
 
 ### Database Migrations
 ```bash
 # Generate new migration (auto-generates from entities)
-yarn migration:generate
+npm run migration:generate
 
 # Generate for specific environment
-yarn migration:generate:dev
-yarn migration:generate:test
+npm run migration:generate:dev
+npm run migration:generate:test
 
 # Create empty migration manually
-yarn migration:create
+npm run migration:create
 
 # Run migrations
-yarn migration:run
-yarn migration:run:dev
-yarn migration:run:test
+npm run migration:run
+npm run migration:run:dev
+npm run migration:run:test
 
 # Revert last migration
-yarn migration:revert
+npm run migration:revert
 
 # Show migration status
-yarn migration:show
+npm run migration:show
 ```
 
 ### Testing
 ```bash
 # Unit tests
-yarn run test
+npm test
 
 # Watch mode
-yarn run test:watch
+npm run test:watch
 
 # Coverage
-yarn run test:cov
+npm run test:cov
 
 # E2E tests (requires INCLUDE_TESTING_MODULE=true)
-yarn run test:e2e
+npm run test:e2e
 ```
 
 ### Code Quality
 ```bash
 # Lint with auto-fix
-yarn run lint
+npm run lint
 
 # Format code
-yarn run format
+npm run format
 ```
 
 ## Development Conventions

@@ -5,9 +5,10 @@ import { DomainExceptionCode } from '../../../../core/exceptions/domain-exceptio
 import { AnswerRepository } from '../../infrastructure/answer.repository';
 import { PlayerRepository } from '../../infrastructure/player.repository';
 import { answerStatuses } from '../../domain/answer.entity';
-import { gameStatuses } from '../../domain/game.entity';
+import { gameStatuses, GameEntity } from '../../domain/game.entity';
 import { AnswerViewDto } from '../../api/view-dto/answer.view-dto';
 import { DataSource, EntityManager } from 'typeorm';
+import { GameFinishService } from '../game-finish.service';
 
 export class SetAnswerCommand {
   constructor(
@@ -23,6 +24,7 @@ export class SetAnswerUseCase {
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
     private readonly answerRepository: AnswerRepository,
+    private readonly gameFinishService: GameFinishService,
   ) {}
 
   async execute(command: SetAnswerCommand): Promise<AnswerViewDto> {
@@ -124,20 +126,21 @@ export class SetAnswerUseCase {
           player.score = newScore; // Обновляем локальный объект для последующей логики
         }
 
-        // Проверяем, ответили ли все игроки на все вопросы
-        // Учитываем только что сохраненный ответ
-        const answersCount = new Map<string, number>();
-        for (const p of game.players) {
-          const count = (p.answers?.length || 0) + (p.id === player.id ? 1 : 0);
-          answersCount.set(p.id, count);
-        }
+        // После ответа на вопрос проверяем ситуацию:
+        // 1. Если оба ответили на все вопросы → завершаем игру
+        // 2. Если этот игрок ответил на все, но соперник ещё нет → устанавливаем дедлайн
 
-        const allAnswered = Array.from(answersCount.values()).every(
-          (count) => count >= totalQuestions,
-        );
+        const currentAnswersCount =
+          (player.answers?.length ?? 0) + 1; // +1 так как ответ уже сохранён
+        const opponent = game.players.find((p) => p.userId !== command.userId);
+        const opponentAnswersCount = opponent?.answers?.length ?? 0;
 
-        if (allAnswered) {
-          // Явно блокируем игру для обновления
+        const currentPlayerFinished = currentAnswersCount >= totalQuestions;
+        const opponentFinished = opponentAnswersCount >= totalQuestions;
+
+        if (currentPlayerFinished && opponentFinished) {
+          // Оба игрока ответили на все вопросы → завершаем игру сразу
+          // Блокируем игру для обновления
           const lockedGame = await this.gameRepository.lockGameForUpdate(
             game.gameId,
             manager,
@@ -150,102 +153,29 @@ export class SetAnswerUseCase {
             });
           }
 
-          // Проверяем статус повторно после блокировки
-          if (lockedGame.status === gameStatuses.Finished) {
-            // Игра уже завершена, просто возвращаем результат
-            return AnswerViewDto.mapToView(savedAnswer);
-          }
-
-          // Перепроверяем, действительно ли все ответили после блокировки
           const player1 = lockedGame.players[0];
           const player2 = lockedGame.players[1];
 
-          // Убедимся, что у обоих игроков действительно есть все ответы
-          if (
-            player1.answers.length < totalQuestions ||
-            player2.answers.length < totalQuestions
-          ) {
-            // Еще не все ответы сохранены, не завершаем игру
-            return AnswerViewDto.mapToView(savedAnswer);
-          }
+          await this.gameFinishService.finishGame(
+            game.gameId,
+            player1,
+            player2,
+            totalQuestions,
+            manager,
+          );
+        } else if (currentPlayerFinished && !opponentFinished) {
+          // Этот игрок закончил, но соперник ещё нет → устанавливаем дедлайн
+          const now = new Date();
+          const deadline = new Date(now.getTime() + 10_000); // 10 секунд
 
-          // Подсчитываем правильные ответы
-          const correctAnswers1 = player1.answers.filter(
-            (a) => a.status === answerStatuses.Correct,
-          ).length;
-          const correctAnswers2 = player2.answers.filter(
-            (a) => a.status === answerStatuses.Correct,
-          ).length;
-
-          // Начисляем бонусные очки согласно правилам:
-          // +1 балл тому, кто ответил на все вопросы быстрее И имеет хотя бы 1 правильный ответ
-          if (correctAnswers1 > 0 || correctAnswers2 > 0) {
-            // Определяем, кто закончил первым (по времени последнего ответа)
-            const lastAnswer1 = player1.answers.sort(
-              (a, b) => b.addedAt.getTime() - a.addedAt.getTime(),
-            )[0];
-            const lastAnswer2 = player2.answers.sort(
-              (a, b) => b.addedAt.getTime() - a.addedAt.getTime(),
-            )[0];
-
-            if (lastAnswer1 && lastAnswer2) {
-              if (
-                lastAnswer1.addedAt < lastAnswer2.addedAt &&
-                correctAnswers1 > 0
-              ) {
-                // Игрок 1 ответил быстрее и имеет хотя бы 1 правильный ответ
-                const bonusScore = (player1.score || 0) + 1;
-                await this.playerRepository.updateScore(
-                  player1.id,
-                  bonusScore,
-                  manager,
-                );
-                player1.score = bonusScore;
-              } else if (
-                lastAnswer2.addedAt < lastAnswer1.addedAt &&
-                correctAnswers2 > 0
-              ) {
-                // Игрок 2 ответил быстрее и имеет хотя бы 1 правильный ответ
-                const bonusScore = (player2.score || 0) + 1;
-                await this.playerRepository.updateScore(
-                  player2.id,
-                  bonusScore,
-                  manager,
-                );
-                player2.score = bonusScore;
-              }
-              if (player1.score === player2.score) {
-                await this.gameRepository.setWinnerId(
-                  game.gameId,
-                  null,
-                  manager,
-                );
-              }
-            }
-          }
-
-          if (player1.score > player2.score) {
-            await this.gameRepository.setWinnerId(
-              game.gameId,
-              player1.id,
-              manager,
-            );
-          } else if (player2.score > player1.score) {
-            await this.gameRepository.setWinnerId(
-              game.gameId,
-              player2.id,
-              manager,
-            );
-          } else {
-            await this.gameRepository.setWinnerId(game.gameId, null, manager);
-          }
-
-          // Mark game finished
-          lockedGame.status = gameStatuses.Finished;
-          lockedGame.finishGameDate = new Date();
-
-          await this.gameRepository.save(lockedGame, manager);
+          await this.gameRepository.setLastAnsweredAt(
+            game.gameId,
+            now,
+            deadline,
+            manager,
+          );
         }
+
         return AnswerViewDto.mapToView(savedAnswer);
       });
     } catch (error) {
